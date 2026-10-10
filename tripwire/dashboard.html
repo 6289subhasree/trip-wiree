@@ -2,472 +2,744 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TripWire · Security Console</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TripWire console</title>
 <style>
 :root{
-  --bg:#070b11;--panel:#0e1621;--panel2:#0b121b;--line:#1e2b3b;--line2:#2a3b50;
-  --text:#e7eef6;--muted:#8193a8;--dim:#5c6d82;
-  --cyan:#4fd1c5;--green:#3ecf8e;--red:#ff5c6c;--amber:#f5b942;--blue:#5aa2ff;--violet:#a78bfa;
-  --mono:ui-monospace,"Cascadia Code","Consolas",monospace;
+  --ink:#0b0708; --ink2:#120a0b; --ink3:#1a1012; --rule:#2c1d20; --rule2:#3a272b;
+  --crimson:#c8102e; --bone:#efe9e4; --muted:#8a7f7a; --green:#5f8f6e; --amber:#c98a1a;
+  --paper:#fbf9f5; --paper-ink:#1c1614; --paper-rule:#d8d1c7;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --sans:"Segoe UI",system-ui,sans-serif;
+  --mono:Consolas,ui-monospace,monospace;
 }
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,-apple-system,sans-serif}
-body{background:radial-gradient(1200px 500px at 50% -200px,#12283a 0,transparent 70%),var(--bg)}
-main{max-width:1440px;margin:0 auto;padding:18px 18px 48px}
-h1,h2,h3{margin:0;font-weight:600}
-h2{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-button{font:inherit;color:var(--text);background:#16212f;border:1px solid var(--line2);border-radius:8px;padding:7px 11px;cursor:pointer;transition:.15s}
-button:hover{border-color:var(--cyan);background:#1a2838}
-button:disabled{opacity:.45;cursor:not-allowed}
-button.primary{background:#0f3a3a;border-color:#1f6b66}
-button.danger{background:#3a1218;border-color:#7a2633}
-button.warn{background:#3a2a0e;border-color:#7a5a1f}
-button.small{padding:4px 8px;font-size:12px}
-input,select{font:inherit;color:var(--text);background:#0a1119;border:1px solid var(--line2);border-radius:8px;padding:6px 9px}
-input[type=range]{padding:0;width:100%;accent-color:var(--cyan)}
+html,body{margin:0;background:var(--ink);color:var(--bone);font-family:var(--sans);font-size:13px;line-height:1.45}
+[hidden]{display:none!important}
+button,input,select{font:inherit;color:inherit}
+h1,h2,h3{font-family:var(--serif);font-weight:400;margin:0}
+.num{font-variant-numeric:tabular-nums}
 .mono{font-family:var(--mono)}
-.muted{color:var(--muted)}.dim{color:var(--dim)}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.grid{display:grid;gap:14px}
-.card{background:linear-gradient(160deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:14px;padding:14px 16px;min-width:0}
-.card>header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px}
-.top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:14px;flex-wrap:wrap}
-.brand{display:flex;gap:12px;align-items:center}
-.logo{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;background:#0f2a2c;border:1px solid #23615f}
-.brand h1{font-size:20px;letter-spacing:.02em}
-.brand p{margin:0;color:var(--muted);font-size:12.5px}
-.pill{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:6px 12px;font-weight:600;font-size:12.5px;border:1px solid var(--line2);white-space:nowrap}
-.pill .dot{width:9px;height:9px;border-radius:50%;background:currentColor;box-shadow:0 0 10px currentColor}
-.m-NORMAL{color:var(--green);border-color:#1f5a40;background:#0c2219}
-.m-BLOCKING{color:var(--amber);border-color:#6b5020;background:#261c0a}
-.m-LOCKDOWN{color:var(--red);border-color:#7a2633;background:#2a0d12;animation:pulse 1.6s infinite}
-@keyframes pulse{50%{box-shadow:0 0 0 6px #ff5c6c22}}
-.banner{display:none;margin-bottom:14px;padding:10px 14px;border-radius:12px;border:1px solid #7a2633;background:#2a0d12;color:#ffc2c8}
-.banner.show{display:block}
-.status{grid-template-columns:1.25fr 1fr 1fr 1.6fr}
-.big{font-size:28px;font-weight:700;letter-spacing:.01em}
-.meter{position:relative;height:12px;border-radius:999px;background:#0a1119;border:1px solid var(--line);overflow:hidden;margin:10px 0 6px}
-.meter>i{position:absolute;inset:0 auto 0 0;border-radius:999px;transition:width .4s}
-.meter>b{position:absolute;top:-3px;bottom:-3px;width:2px;background:#fff}
-.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.kpi{background:#0a1119;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
-.kpi b{display:block;font-size:20px}
-.kpi span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
-.kpi.bad b{color:var(--red)}.kpi.good b{color:var(--green)}
-.flowwrap{grid-template-columns:2fr 1fr}
-svg text{font-family:"Segoe UI",system-ui,sans-serif}
-.node rect{fill:#0d1824;stroke:var(--line2);stroke-width:1.5}
-.node.on rect{stroke:var(--cyan)}
-.node.bad rect{stroke:var(--red)}
-.node.iso rect{stroke:var(--amber);stroke-dasharray:4 3}
-.edge{stroke:var(--line2);stroke-width:2;fill:none}
-.edge.ok{stroke:var(--green)}.edge.no{stroke:var(--red)}.edge.blk{stroke:var(--amber)}
-.edge.anim{stroke-dasharray:6 6;animation:dash .8s linear infinite}
-@keyframes dash{to{stroke-dashoffset:-12}}
-.last{font-family:var(--mono);font-size:12.5px;background:#0a1119;border:1px solid var(--line);border-radius:10px;padding:10px;min-height:64px;white-space:pre-wrap;word-break:break-word}
-.three{grid-template-columns:1fr 1.25fr 1fr}
-.two{grid-template-columns:1fr 1fr}
-.scen{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
-.sc{border:1px solid var(--line);background:#0a1119;border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:4px}
-.sc .t{font-weight:600;font-size:13px}
-.sc .d{font-size:11.5px;color:var(--muted);flex:1}
-.tag{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;border-radius:6px;padding:2px 6px;border:1px solid var(--line2);color:var(--muted);white-space:nowrap}
-.tag.external{color:var(--violet);border-color:#4b3a7a}.tag.mitm{color:var(--blue);border-color:#284a7a}.tag.compromised{color:var(--amber);border-color:#6b5020}
-.badge{font-family:var(--mono);font-size:11px;font-weight:600;padding:2px 7px;border-radius:6px;white-space:nowrap}
-.b-ACCEPTED,.b-SIMULATED_DELIVERY,.b-OK{background:#0c2a1e;color:var(--green)}
-.b-REJECTED{background:#2f0f15;color:var(--red)}
-.b-BLOCKED{background:#2d220a;color:var(--amber)}
-.b-SKIPPED{background:#1b2533;color:var(--muted)}
-.list{max-height:330px;overflow:auto;border-top:1px solid var(--line)}
-table{width:100%;border-collapse:collapse;font-size:12.5px}
-td,th{padding:6px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
-th{color:var(--muted);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.06em;position:sticky;top:0;background:var(--panel)}
-tr.atk td:first-child{box-shadow:inset 3px 0 var(--red)}
-tr.leg td:first-child{box-shadow:inset 3px 0 var(--green)}
-.steps{display:flex;flex-direction:column;gap:6px}
-.step{display:grid;grid-template-columns:26px 1fr auto;gap:8px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:7px 9px;background:#0a1119}
-.step .n{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#16212f;font-size:12px;font-weight:700}
-.step.done .n{background:#0c2a1e;color:var(--green)}
-.step.cur{border-color:var(--cyan)}
-.step small{display:block;color:var(--muted);font-size:11.5px}
-.toast{position:fixed;right:18px;bottom:18px;max-width:420px;padding:11px 14px;border-radius:10px;background:#16212f;border:1px solid var(--line2);box-shadow:0 10px 30px #0008;opacity:0;transform:translateY(10px);transition:.25s;pointer-events:none;z-index:9}
-.toast.show{opacity:1;transform:none}
-.toast.err{border-color:#7a2633;background:#2a0d12}
-.hash{font-family:var(--mono);font-size:11px;color:var(--muted);word-break:break-all}
-.chips{display:flex;gap:6px;flex-wrap:wrap}
-.chip{font-size:11.5px;border:1px solid var(--line2);border-radius:999px;padding:2px 8px;color:var(--muted)}
-footer{margin-top:16px;color:var(--dim);font-size:12px}
-@media (max-width:1100px){.status,.flowwrap,.three,.two{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
-@media (max-width:560px){main{padding:12px}.scen{grid-template-columns:1fr}}
+.label{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}
+.c-block{color:var(--crimson)} .c-allow{color:var(--green)} .c-wait{color:var(--amber)}
+
+/* top bar */
+.top{display:flex;align-items:stretch;border-bottom:1px solid var(--rule);background:var(--ink2);flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px;padding:10px 18px;border-right:1px solid var(--rule);position:relative}
+.flag{width:0;height:0;border-top:26px solid var(--crimson);border-right:26px solid transparent;position:absolute;left:0;top:0}
+.brand h1{font-size:22px;letter-spacing:.2em;padding-left:14px}
+.brand small{display:block;font-family:var(--sans);font-size:10px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;padding-left:14px}
+.cell{padding:8px 16px;border-right:1px solid var(--rule);min-width:0;display:flex;flex-direction:column;justify-content:center}
+.cell .v{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:64ch}
+.cell.grow{flex:1 1 220px}
+.cell.grow .v{max-width:none}
+.fw-NORMAL{color:var(--green)} .fw-BLOCKING{color:var(--amber)} .fw-LOCKDOWN{color:var(--crimson);animation:slow 2.4s ease-in-out infinite}
+@keyframes slow{50%{opacity:.45}}
+.modes{display:flex;align-items:center;gap:0;padding:0 14px}
+.modes button{border:1px solid var(--rule2);background:transparent;padding:6px 12px;cursor:pointer;letter-spacing:.08em;font-size:11px;text-transform:uppercase}
+.modes button+button{border-left:0}
+.modes button[aria-pressed=true]{background:var(--bone);color:var(--ink);border-color:var(--bone)}
+
+/* grid */
+.grid{display:grid;grid-template-columns:30fr 40fr 30fr;border-bottom:1px solid var(--rule)}
+.col{border-right:1px solid var(--rule);min-width:0;padding:14px 16px 18px}
+.col:last-child{border-right:0}
+.sec{display:flex;align-items:baseline;gap:10px;margin:0 0 10px}
+.sec .n{background:var(--crimson);color:#fff;font-family:var(--serif);font-size:13px;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.sec h2{font-size:19px}
+.sec .aside{margin-left:auto;font-size:11px;color:var(--muted)}
+.sec+.sec,.block+.sec{margin-top:18px}
+hr{border:0;border-top:1px solid var(--rule);margin:14px 0}
+
+/* controls */
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.btn{border:1px solid var(--rule2);background:var(--ink3);padding:6px 11px;cursor:pointer;border-radius:2px;font-size:12px}
+.btn:hover{border-color:var(--bone)}
+.btn.primary{background:var(--bone);color:var(--ink);border-color:var(--bone)}
+.btn.danger{border-color:var(--crimson);color:var(--crimson)}
+.btn.ok{border-color:var(--green);color:var(--green)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+input[type=text],input[type=number],input[type=password],select{background:var(--ink);border:1px solid var(--rule2);padding:6px 8px;border-radius:2px;min-width:0}
+input:focus,select:focus,button:focus-visible{outline:1px solid var(--bone);outline-offset:1px}
+.fill{flex:1 1 140px}
+.hint{font-size:11px;color:var(--muted);margin:0 0 8px}
+
+/* paper */
+.paper{background:var(--paper);color:var(--paper-ink);padding:22px 22px 18px;border-radius:1px;font-family:var(--serif);font-size:13px;margin-top:10px;position:relative}
+.paper+.paper{margin-top:12px}
+.paper .tag{position:absolute;right:10px;top:8px;font-family:var(--sans);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:#8b837b}
+.paper .vend{font-size:18px}
+.paper .kind{font-family:var(--sans);font-size:10px;letter-spacing:.2em;margin:8px 0 6px;color:#5b534d}
+.paper .kv{display:flex;gap:10px;border-bottom:1px solid var(--paper-rule);padding:2px 0}
+.paper .kv b{font-family:var(--sans);font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#6b635c;flex:0 0 118px;padding-top:2px}
+.paper .kv span{font-variant-numeric:tabular-nums;min-width:0;overflow-wrap:anywhere}
+.paper .head{font-family:var(--sans);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#6b635c;margin:12px 0 4px}
+.paper .total{font-size:15px;border-bottom:2px solid var(--paper-ink)}
+.paper .ln{padding:2px 0;overflow-wrap:anywhere;position:relative}
+.paper .ln.hit{padding-right:0}
+.uinstr{text-decoration:underline;text-decoration-color:var(--crimson);text-decoration-thickness:2px;text-underline-offset:3px;background:rgba(200,16,46,.07)}
+.note{display:block;font-family:var(--sans);font-size:9.5px;letter-spacing:.1em;color:var(--crimson);text-transform:uppercase;border-left:2px solid var(--crimson);padding-left:6px;margin:3px 0 4px}
+.inj{display:block;font-family:var(--sans);font-size:9.5px;letter-spacing:.1em;color:#6b635c;text-transform:uppercase}
+
+/* pathway */
+.lanes{display:grid;grid-template-columns:1fr auto 1fr auto 1fr auto 1fr;align-items:stretch;gap:0;margin-bottom:6px}
+.node{border:1px solid var(--rule2);padding:7px 8px;min-width:0}
+.node b{display:block;font-family:var(--serif);font-weight:400;font-size:14px}
+.node span{display:block;font-size:10.5px;color:var(--muted);overflow-wrap:anywhere}
+.node.gw{border-color:var(--bone)}
+.edge{width:34px;height:1px;background:var(--rule2);position:relative;align-self:center}
+.edge::after{content:"";position:absolute;right:0;top:-3px;border-left:6px solid var(--rule2);border-top:3.5px solid transparent;border-bottom:3.5px solid transparent}
+.edge.allow{background:var(--green)} .edge.allow::after{border-left-color:var(--green)}
+.edge.block{background:var(--crimson)} .edge.block::after{border-left-color:var(--crimson)}
+.edge.wait{background:var(--amber)} .edge.wait::after{border-left-color:var(--amber)}
+.edge.live{background:var(--bone)} .edge.live::after{border-left-color:var(--bone)}
+.a3{display:grid;grid-template-columns:1fr auto 1fr auto 1fr auto 1fr;margin-bottom:12px}
+.a3 .up{grid-column:3;display:flex;flex-direction:column;align-items:center}
+.a3 .stem{width:1px;height:14px;background:var(--rule2)}
+.a3 .stem.block{background:var(--crimson)} .a3 .stem.live{background:var(--bone)}
+.a3 .node{width:100%}
+.pathnote{font-size:11px;color:var(--muted);margin:0 0 12px}
+
+/* approval card */
+.card{border:1px solid var(--amber);border-left-width:3px;padding:10px 12px;margin-bottom:10px;background:var(--ink2)}
+.card h3{font-size:16px;margin-bottom:6px}
+.card dl{display:grid;grid-template-columns:120px 1fr;gap:3px 10px;margin:0 0 8px}
+.card dt{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding-top:1px}
+.card dd{margin:0;overflow-wrap:anywhere}
+
+/* ledger */
+.ledger{font-family:var(--mono);font-size:11.5px;border-top:1px solid var(--rule);max-height:520px;overflow:auto}
+.lrow{border-bottom:1px solid var(--rule);padding:6px 2px;cursor:pointer;display:grid;grid-template-columns:86px 78px 1fr;gap:4px 10px}
+.lrow:hover{background:var(--ink2)}
+.lrow.new{animation:slide .28s ease-out}
+@keyframes slide{from{transform:translateY(-6px);opacity:0}}
+.lrow .t{color:var(--muted)}
+.lrow .act{font-weight:700;overflow-wrap:anywhere}
+.lrow .why{grid-column:3;color:var(--bone);font-family:var(--sans);font-size:12px;overflow-wrap:anywhere}
+.lrow .meta{grid-column:3;color:var(--muted);overflow-wrap:anywhere}
+.stamp{display:inline-block;border:1px solid currentColor;padding:0 5px;font-size:10.5px;letter-spacing:.08em;height:17px;line-height:15px;text-align:center;align-self:start}
+.lrow.new .stamp{animation:stamp .3s ease-out .15s backwards}
+@keyframes stamp{from{transform:scale(1.5);opacity:0}}
+.s-ALLOW,.s-ACCEPTED,.s-DONE,.s-APPROVED{color:var(--green)}
+.s-BLOCK,.s-REJECTED,.s-BLOCKED,.s-BREACHED{color:var(--crimson)}
+.s-APPROVAL,.s-PENDING_APPROVAL{color:var(--amber)}
+.s-other{color:var(--muted)}
+.detail{grid-column:1/-1;background:var(--ink);border:1px solid var(--rule);padding:8px;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--bone);max-height:340px;overflow:auto;cursor:text}
+.empty{color:var(--muted);padding:14px 2px;font-family:var(--sans)}
+
+/* spec sheet */
+.spec{border-top:1px solid var(--rule)}
+.spec .r{display:grid;grid-template-columns:112px 1fr;gap:8px;border-bottom:1px solid var(--rule);padding:5px 0}
+.spec .r>div:last-child{min-width:0;overflow-wrap:anywhere}
+.tool{display:flex;flex-wrap:wrap;gap:0 8px;align-items:baseline;font-family:var(--mono);font-size:11.5px}
+.tool .nm{white-space:nowrap}
+.tool .m{width:12px;text-align:center}
+.tool .x{margin-left:auto;font-family:var(--sans);font-size:10.5px;color:var(--muted);white-space:nowrap}
+.hash{font-family:var(--mono);font-size:11px;overflow-wrap:anywhere}
+
+/* band */
+.band{display:grid;grid-template-columns:1fr 1fr 1.15fr 1.25fr;border-bottom:1px solid var(--rule)}
+.band>div{padding:14px 16px;border-right:1px solid var(--rule);min-width:0}
+.band>div:last-child{border-right:0}
+.kv2{display:grid;grid-template-columns:auto 1fr;gap:2px 12px}
+.kv2 dt{color:var(--muted);font-size:11.5px} .kv2 dd{margin:0;text-align:right;overflow-wrap:anywhere}
+dl{margin:0}
+.sev{font-family:var(--serif);font-size:44px;line-height:1;margin:2px 0 4px}
+.sev.Low{color:var(--green)} .sev.Medium{color:var(--amber)} .sev.High,.sev.Critical{color:var(--crimson)}
+.mail{border-bottom:1px solid var(--rule);padding:5px 0;font-size:12px;overflow-wrap:anywhere}
+.mail .k{font-size:10px;letter-spacing:.1em;text-transform:uppercase}
+
+/* replay */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--rule)}
+.split>div{padding:10px 12px;min-width:0}
+.split>div+div{border-left:1px solid var(--rule)}
+.split .ledger{max-height:300px}
+.split .lrow{grid-template-columns:70px 1fr}
+.split .lrow .why,.split .lrow .meta{grid-column:2}
+.split .kv2{grid-template-columns:1fr}
+.split .kv2 dd{text-align:left;margin-bottom:4px}
+.banner{border:1px solid var(--rule2);border-left:3px solid var(--crimson);padding:6px 10px;font-size:11.5px;margin-bottom:10px}
+
+/* drawer */
+details.drawer{border-bottom:1px solid var(--rule)}
+details.drawer>summary{cursor:pointer;padding:10px 16px;list-style:none;display:flex;align-items:baseline;gap:10px}
+details.drawer>summary::-webkit-details-marker{display:none}
+details.drawer>summary h2{font-size:17px}
+.drawer .inner{display:grid;grid-template-columns:1.2fr 1fr 1fr;border-top:1px solid var(--rule)}
+.drawer .inner>div{padding:12px 16px;border-right:1px solid var(--rule);min-width:0}
+.drawer .inner>div:last-child{border-right:0}
+.atk{display:grid;grid-template-columns:1fr auto;gap:2px 8px;border-bottom:1px solid var(--rule);padding:5px 0}
+.atk small{grid-column:1;color:var(--muted)}
+.atk .btn{grid-row:1/3;grid-column:2;align-self:center}
+table{border-collapse:collapse;width:100%;font-size:11.5px}
+td,th{border-bottom:1px solid var(--rule);padding:3px 6px 3px 0;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+#attackLog td:first-child,#attackLog td:nth-child(3){white-space:nowrap;overflow-wrap:normal}
+th{font-weight:400;color:var(--muted);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase}
+
+.foot{display:flex;justify-content:space-between;gap:12px;padding:9px 18px;font-size:11px;letter-spacing:.16em;color:var(--muted);flex-wrap:wrap}
+.foot b{color:var(--bone);font-weight:400}
+#toast{position:fixed;left:16px;bottom:16px;max-width:520px;background:var(--ink2);border:1px solid var(--crimson);padding:8px 12px;font-size:12px;z-index:5}
+.big{font-family:var(--serif);font-size:40px;line-height:1}
+
+@media (max-width:1100px){
+  .grid{grid-template-columns:1fr} .col{border-right:0;border-bottom:1px solid var(--rule)}
+  .band{grid-template-columns:1fr 1fr} .band>div{border-bottom:1px solid var(--rule)}
+  .drawer .inner{grid-template-columns:1fr} .drawer .inner>div{border-right:0;border-bottom:1px solid var(--rule)}
+}
+@media (max-width:620px){
+  .band,.split{grid-template-columns:1fr} .split>div+div{border-left:0;border-top:1px solid var(--rule)}
+  .lanes,.a3{grid-template-columns:1fr} .edge{width:1px;height:12px;margin:0 auto} .edge::after{display:none}
+  .a3 .up{grid-column:1}
+  .lrow{grid-template-columns:70px 1fr} .lrow .act{grid-column:1/-1} .lrow .why,.lrow .meta{grid-column:1/-1}
+  .cell .v{max-width:28ch} .brand{border-right:0}
+  .paper .kv b{flex-basis:92px}
+}
 </style>
 </head>
 <body>
-<main>
-  <div class="top">
-    <div class="brand">
-      <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4fd1c5" stroke-width="2"><path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5z"/><path d="M4 12h5l2-3 2 6 2-3h5"/></svg></div>
-      <div><h1>TripWire</h1><p>Policy-enforced communication boundary for AI agents · local simulation</p></div>
-    </div>
-    <div class="row">
-      <span id="profilePill" class="pill"></span>
-      <span id="modePill" class="pill"><span class="dot"></span><span>…</span></span>
-      <button id="resetBtn" class="small" title="Clear traffic, metrics, outbox and audit. Firewall mode is preserved.">Reset demo</button>
-    </div>
+<header class="top">
+  <div class="brand"><i class="flag"></i><div><h1>TRIPWIRE</h1><small>TripWire console · Team Hellcode</small></div></div>
+  <div class="cell grow"><span class="label" id="taskLabel">Task</span><span class="v" id="taskCell">no task assigned</span></div>
+  <div class="cell"><span class="label">Firewall</span><span class="v" id="fwCell">-</span></div>
+  <div class="cell"><span class="label">Profile</span><span class="v" id="profCell">-</span></div>
+  <div class="cell"><span class="label">Manifest hash</span><span class="v mono" id="hashCell">-</span></div>
+  <div class="modes" role="group" aria-label="Mode">
+    <button id="modeTask" aria-pressed="true">Invoice task</button><button id="modeEvent" aria-pressed="false">Event stream</button>
   </div>
+</header>
 
-  <div id="baselineBanner" class="banner"><b>INSECURE BASELINE PROFILE.</b> The gateway is skipping authentication, route, replay, freshness, sequence and strict-payload checks so you can see what attacks do without TripWire. The firewall still applies. Switch back to <b>strict</b> to restore enforcement.</div>
-  <div id="lockBanner" class="banner"></div>
-
-  <!-- status row -->
-  <section class="grid status">
-    <div class="card">
-      <header><h2>Firewall</h2><span id="fwAuto" class="tag"></span></header>
-      <div id="fwMode" class="big">…</div>
-      <div id="fwReason" class="muted" style="min-height:20px"></div>
-      <div class="row" style="margin-top:10px">
-        <button id="btnBlock" class="warn">Engage kill switch</button>
-        <button id="btnRelease">Release</button>
-        <button id="btnLock" class="danger">Emergency lockdown</button>
-      </div>
-      <div class="row" style="margin-top:8px">
-        <input id="recCode" class="mono" placeholder="recovery code (see terminal)" autocomplete="off" style="flex:1;min-width:140px">
-        <button id="btnRecover" class="primary">Recover</button>
-      </div>
-    </div>
-    <div class="card">
-      <header><h2>Risk score · Agent 1</h2><span class="tag" title="Heuristic severity index, not a probability">0-100 index</span></header>
-      <div class="row" style="justify-content:space-between"><span id="riskVal" class="big">0</span><span class="muted">threshold <b id="thrVal">70</b></span></div>
-      <div class="meter"><i id="riskBar"></i><b id="thrMark"></b></div>
-      <div class="row"><input id="thrInput" type="number" min="1" max="100" step="1" style="width:80px"><button id="btnThr" class="small">Set threshold</button></div>
-      <div id="incident" class="muted" style="margin-top:6px;font-size:12px"></div>
-    </div>
-    <div class="card">
-      <header><h2>Intrusion pressure</h2><label class="row muted" style="font-size:12px"><input id="autoLock" type="checkbox"> auto-lockdown</label></header>
-      <div class="row" style="justify-content:space-between"><span id="pVal" class="big">0</span><span class="muted">lockdown at <b id="pThr">200</b></span></div>
-      <div class="meter"><i id="pBar"></i></div>
-      <div class="muted" style="font-size:12px">Each rejection adds its severity weight; decays with a 120 s half-life. Crossing the line triggers automatic LOCKDOWN.</div>
-    </div>
-    <div class="card">
-      <header><h2>Security metrics</h2><span class="muted" style="font-size:12px">derived from real decisions</span></header>
-      <div class="kpis" id="kpis"></div>
-    </div>
-  </section>
-
-  <!-- flow -->
-  <section class="grid flowwrap" style="margin-top:14px">
-    <div class="card">
-      <header><h2>Agent communication path</h2><span class="muted" style="font-size:12px">every arrow passes through the gateway</span></header>
-      <svg id="flow" viewBox="0 0 900 250" width="100%" role="img" aria-label="Message flow diagram">
-        <defs>
-          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#4c6178"/></marker>
-        </defs>
-        <path id="e-mg" class="edge" d="M170 70 H330" marker-end="url(#ah)"/>
-        <path id="e-gv" class="edge" d="M470 60 H620" marker-end="url(#ah)"/>
-        <path id="e-vg" class="edge" d="M620 92 H470" marker-end="url(#ah)"/>
-        <path id="e-ge" class="edge" d="M400 110 V170 H620" marker-end="url(#ah)"/>
-        <path id="e-ag" class="edge" d="M170 200 H300 Q330 200 350 112" marker-end="url(#ah)"/>
-        <g id="n-mon" class="node"><rect x="20" y="40" width="150" height="62" rx="10"/><text x="95" y="66" text-anchor="middle" fill="#e7eef6" font-size="14" font-weight="600">Agent 1 · Monitor</text><text id="t-mon" x="95" y="86" text-anchor="middle" fill="#8193a8" font-size="11.5">sender</text></g>
-        <g id="n-gw" class="node"><rect x="330" y="30" width="140" height="82" rx="12"/><text x="400" y="58" text-anchor="middle" fill="#4fd1c5" font-size="14" font-weight="700">GATEWAY</text><text id="t-gw" x="400" y="78" text-anchor="middle" fill="#8193a8" font-size="11.5">policy enforcement</text><text id="t-gw2" x="400" y="96" text-anchor="middle" fill="#8193a8" font-size="11.5"></text></g>
-        <g id="n-val" class="node"><rect x="620" y="40" width="160" height="62" rx="10"/><text x="700" y="66" text-anchor="middle" fill="#e7eef6" font-size="14" font-weight="600">Agent 2 · Validator</text><text id="t-val" x="700" y="86" text-anchor="middle" fill="#8193a8" font-size="11.5">receiver</text></g>
-        <g id="n-mail" class="node"><rect x="620" y="140" width="160" height="62" rx="10"/><text x="700" y="166" text-anchor="middle" fill="#e7eef6" font-size="14" font-weight="600">Email action</text><text id="t-mail" x="700" y="186" text-anchor="middle" fill="#8193a8" font-size="11.5">mock outbox</text></g>
-        <g id="n-adv" class="node"><rect x="20" y="170" width="150" height="62" rx="10"/><text x="95" y="196" text-anchor="middle" fill="#ff8a96" font-size="14" font-weight="600">Agent 3 · Adversary</text><text id="t-adv" x="95" y="216" text-anchor="middle" fill="#8193a8" font-size="11.5">idle</text></g>
-        <text x="250" y="62" text-anchor="middle" fill="#5c6d82" font-size="11">telemetry / alert</text>
-        <text x="545" y="52" text-anchor="middle" fill="#5c6d82" font-size="11">verified only</text>
-        <text x="545" y="108" text-anchor="middle" fill="#5c6d82" font-size="11">action request</text>
-        <text x="510" y="164" text-anchor="middle" fill="#5c6d82" font-size="11">authorised action</text>
-      </svg>
-    </div>
-    <div class="card">
-      <header><h2>Last gateway decision</h2><span id="lastBadge"></span></header>
-      <div id="lastText" class="last">No traffic yet. Use the controls below or the guided demo.</div>
-    </div>
-  </section>
-
-  <!-- controls -->
-  <section class="grid three" style="margin-top:14px">
-    <div class="card">
-      <header><h2>Agent 1 controls</h2></header>
-      <div class="muted" style="font-size:12px;margin-bottom:6px">Deterministic event streams (same scores every run)</div>
+<main class="grid">
+  <!-- LEFT -->
+  <section class="col">
+    <div id="leftTask">
+      <div class="sec"><span class="n">01</span><h2>Document</h2><span class="aside">untrusted evidence</span></div>
+      <div class="row"><select id="scenario" class="fill" aria-label="Scenario"></select></div>
+      <p class="hint" id="scenarioHint"></p>
+      <div class="row"><input type="text" id="goal" class="fill" maxlength="200" aria-label="Task goal"></div>
       <div class="row">
-        <button id="stBase">Step <b>baseline</b> <span id="stBasePos" class="dim"></span></button>
-        <button id="stInc" class="primary">Step <b>incident</b> <span id="stIncPos" class="dim"></span></button>
-        <button id="stReset" class="small">Rewind</button>
+        <button class="btn primary" id="startBtn">Assign task</button>
+        <button class="btn" id="runBtn">Run Agent 1</button>
+        <button class="btn" id="replayBtn">Replay: baseline vs protected</button>
       </div>
-      <div class="muted" style="font-size:12px;margin:10px 0 6px">Inject a single event</div>
-      <div class="row"><select id="evSel"></select><button id="evBtn">Send event</button></div>
-      <div class="muted" style="font-size:12px;margin:10px 0 6px">Report an explicit score (below / at / above threshold)</div>
-      <div class="row"><input id="scoreIn" type="range" min="0" max="100" value="70" style="flex:1"><span id="scoreLbl" class="mono" style="width:32px">70</span><button id="scoreBtn">Report</button></div>
-      <div class="row" style="margin-top:10px"><button id="alertBtn" class="warn" title="Agent 1 explicitly attempts the protected alert/email workflow">Attempt protected alert</button></div>
+      <div class="row"><input type="text" id="inject" class="fill" maxlength="300" placeholder="Agent 3 · insert an instruction into the document" aria-label="Instruction to insert">
+        <button class="btn danger" id="injectBtn">Insert</button></div>
+      <p class="hint" id="injectHint">Inserted text is document content. It is read by the agent and cannot grant authority.</p>
+      <div id="docs"></div>
     </div>
-    <div class="card">
-      <header><h2>Attack lab · Agent 3</h2>
-        <div class="row"><button id="seqBtn" class="danger small">Run full sequence</button><button id="stopBtn" class="small">Stop</button></div></header>
-      <div id="seqStatus" class="muted" style="font-size:12px;margin-bottom:8px">Attacker idle. All attacks are local and bounded; they use the same gateway path as real agents.</div>
-      <div class="scen" id="scen"></div>
-    </div>
-    <div class="card">
-      <header><h2>Guided demo</h2><button id="demoNext" class="primary small">Run next step</button></header>
-      <div class="steps" id="steps"></div>
-    </div>
-  </section>
-
-  <!-- feeds -->
-  <section class="grid two" style="margin-top:14px">
-    <div class="card">
-      <header><h2>Gateway decisions</h2><span class="muted" style="font-size:12px"><span style="color:var(--green)">▍</span>legit <span style="color:var(--red)">▍</span>attack</span></header>
-      <div class="list"><table><thead><tr><th>#</th><th>Type / sender</th><th>Decision</th><th>Reason</th></tr></thead><tbody id="feed"></tbody></table></div>
-    </div>
-    <div class="card">
-      <header><h2>Email outbox (simulated)</h2><span id="outboxCount" class="muted" style="font-size:12px"></span></header>
-      <div class="list"><table><thead><tr><th>ID</th><th>Status</th><th>To / subject</th><th>Correlation · reason</th></tr></thead><tbody id="outbox"></tbody></table></div>
+    <div id="leftEvent" hidden>
+      <div class="sec"><span class="n">01</span><h2>Agent 1 · event monitor</h2><span class="aside">original mode</span></div>
+      <div class="big num" id="evScore">0</div>
+      <p class="hint" id="evStatus"></p>
+      <div class="row"><button class="btn primary" data-stream="incident">Step incident stream</button>
+        <button class="btn" data-stream="baseline">Step baseline stream</button><button class="btn" id="streamReset">Rewind</button></div>
+      <p class="hint" id="streamHint"></p>
+      <div class="label">Single event</div>
+      <div class="row" id="evButtons" style="margin-top:6px"></div>
+      <div class="row"><input type="number" id="scoreIn" min="0" max="100" value="70" style="width:80px" aria-label="Score">
+        <button class="btn" id="scoreBtn">Report score</button><button class="btn" id="alertBtn">Request alert</button></div>
+      <div class="row"><input type="number" id="thrIn" min="1" max="100" style="width:80px" aria-label="Threshold">
+        <button class="btn" id="thrBtn">Set threshold</button></div>
+      <hr>
+      <div class="label">Agent 2 · validator</div>
+      <p id="a2Status" style="margin:4px 0 0"></p>
     </div>
   </section>
 
-  <section class="grid two" style="margin-top:14px">
-    <div class="card">
-      <header><h2>Attack results</h2><span id="atkSummary" class="muted" style="font-size:12px"></span></header>
-      <div class="list"><table><thead><tr><th>Scenario</th><th>Outcome</th><th>Code</th><th>Detail</th></tr></thead><tbody id="atk"></tbody></table></div>
+  <!-- CENTRE -->
+  <section class="col">
+    <div class="sec"><span class="n">02</span><h2>Agent pathway</h2><span class="aside" id="pathAside"></span></div>
+    <div class="lanes">
+      <div class="node"><b>Agent 1</b><span id="n1">Intake agent</span></div><i class="edge" id="e1"></i>
+      <div class="node gw"><b>Gateway</b><span id="ngw">default deny</span></div><i class="edge" id="e2"></i>
+      <div class="node"><b>Agent 2</b><span id="n2">Policy validator</span></div><i class="edge" id="e3"></i>
+      <div class="node"><b id="n4t">Tools</b><span id="n4">mock enterprise tools</span></div>
     </div>
-    <div class="card">
-      <header><h2>Audit timeline</h2>
-        <div class="row"><button id="verifyBtn" class="small primary">Verify chain</button><button id="tamperBtn" class="small danger" title="Simulate an intruder editing an old record without the audit key">Tamper a record</button></div></header>
-      <div id="auditHead" class="hash" style="margin-bottom:6px"></div>
-      <div class="list"><table><thead><tr><th>Seq</th><th>Time</th><th>Event</th></tr></thead><tbody id="audit"></tbody></table></div>
+    <div class="a3"><div class="up"><i class="stem" id="e4"></i><div class="node"><b>Agent 3</b><span id="n3">Red team</span></div></div></div>
+    <p class="pathnote" id="pathNote"></p>
+
+    <div id="approvals"></div>
+
+    <div id="replayView" hidden>
+      <div class="sec"><span class="n">03</span><h2>Replay</h2><span class="aside"><button class="btn" id="replayClose">Back to live ledger</button></span></div>
+      <div class="banner" id="replayNote"></div>
+      <div class="split"><div id="rpBase"></div><div id="rpProt"></div></div>
+    </div>
+    <div id="ledgerView">
+      <div class="sec"><span class="n">03</span><h2>Evidence ledger</h2><span class="aside" id="ledgerAside"></span></div>
+      <div class="ledger" id="ledger"></div>
     </div>
   </section>
 
-  <div class="card" style="margin-top:14px">
-    <header><h2>Gateway profile (for comparison)</h2></header>
-    <div class="row">
-      <button id="profStrict" class="primary">Strict (default, enforcing)</button>
-      <button id="profBase" class="danger">Baseline (insecure, for comparison)</button>
-      <span class="muted" style="font-size:12.5px">Run the same attacks in both profiles to see what the checks prevent.</span>
+  <!-- RIGHT -->
+  <section class="col">
+    <div id="rightTask">
+      <div class="sec"><span class="n">04</span><h2>Policy manifest</h2><span class="aside" id="capAside"></span></div>
+      <div class="spec" id="spec"></div>
+    </div>
+    <div id="rightEvent" hidden>
+      <div class="sec"><span class="n">04</span><h2>Alert policy</h2></div>
+      <div class="spec" id="evSpec"></div>
+    </div>
+    <div class="sec block" style="margin-top:18px"><span class="n">05</span><h2>Firewall</h2><span class="aside" id="fwAside"></span></div>
+    <p class="hint" id="fwReason"></p>
+    <div class="row"><button class="btn" id="fwBlock">Engage BLOCKING</button><button class="btn" id="fwRelease">Release</button>
+      <button class="btn danger" id="fwLock">LOCKDOWN</button></div>
+    <div class="row"><input type="password" id="code" class="fill" placeholder="Recovery code (server console)" autocomplete="off" aria-label="Recovery code">
+      <button class="btn" id="recoverBtn">Recover</button></div>
+    <div class="row"><button class="btn" id="resetBtn">Reset demo</button><span class="muted" id="pressure"></span></div>
+  </section>
+</main>
+
+<section class="band" id="bandTask">
+  <div><div class="sec"><span class="n">06</span><h2>Extracted fields</h2></div><div id="fields"></div></div>
+  <div><div class="sec"><span class="n">07</span><h2>Payment draft</h2></div><div id="draft"></div></div>
+  <div><div class="sec"><span class="n">08</span><h2>Blast radius</h2></div><div id="blast"></div></div>
+  <div><div class="sec"><span class="n">09</span><h2>Outbox</h2><span class="aside">simulated</span></div><div id="outbox"></div></div>
+</section>
+<section class="band" id="bandEvent" hidden>
+  <div><div class="sec"><span class="n">06</span><h2>Counters</h2></div><div id="evMetrics"></div></div>
+  <div><div class="sec"><span class="n">07</span><h2>Streams</h2></div><div id="evStreams"></div></div>
+  <div><div class="sec"><span class="n">08</span><h2>Audit chain</h2></div><div id="evAudit"></div></div>
+  <div><div class="sec"><span class="n">09</span><h2>Outbox</h2><span class="aside">simulated</span></div><div id="outbox2"></div></div>
+</section>
+
+<details class="drawer" id="drawer">
+  <summary><span class="sec" style="margin:0"><span class="n">10</span><h2>Channel attacks · Agent 3</h2></span><span class="muted" id="drawerAside"></span></summary>
+  <div class="inner">
+    <div>
+      <div class="row"><button class="btn danger" id="suiteBtn">Run full sequence</button><button class="btn" id="stopBtn">Stop</button>
+        <span class="muted" id="suiteState"></span></div>
+      <div id="attacks"></div>
+    </div>
+    <div>
+      <div class="label">Attack log</div>
+      <div style="max-height:330px;overflow:auto;margin-top:6px"><table id="attackLog"></table></div>
+    </div>
+    <div>
+      <div class="label">Gateway profile</div>
+      <div class="row" style="margin-top:6px"><button class="btn" id="profStrict">Protected (strict)</button>
+        <button class="btn danger" id="profBase">Replay-baseline (insecure)</button></div>
+      <p class="hint">Baseline is a labelled counterfactual: it skips verification. It is never the default.</p>
+      <div class="label">Auto-lockdown</div>
+      <div class="row" style="margin-top:6px"><button class="btn" id="autoBtn">-</button><span class="muted" id="autoState"></span></div>
+      <div class="label">Audit</div>
+      <div class="row" style="margin-top:6px"><button class="btn" id="verifyBtn">Verify chain</button><button class="btn danger" id="tamperBtn">Tamper a record</button></div>
+      <p class="hint mono" id="auditState"></p>
+      <div class="label">Attack counters</div>
+      <dl class="kv2" id="atkMetrics" style="margin-top:6px"></dl>
     </div>
   </div>
+</details>
 
-  <footer>
-    TripWire is an application-level simulation: no OS firewall rules are changed, no real email is sent, and the adversary only targets this process.
-    HMAC keys protect integrity and origin towards the gateway; there is no transport encryption or non-repudiation. A stolen agent key used for an in-policy message cannot be distinguished from the real agent. See README "Limitations".
-    <div id="paths" class="mono" style="margin-top:6px"></div>
-  </footer>
-</main>
-<div id="toast" class="toast"></div>
+<footer class="foot"><span><b>TRIPWIRE</b> | CONSTRAIN → ENFORCE → PROVE</span>
+  <span id="footNote">local · offline · synthetic data · every external destination is simulated</span></footer>
+<div id="toast" hidden></div>
 
 <script>
 "use strict";
-const $ = (id) => document.getElementById(id);
-const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const tm = (t) => t ? new Date(t * 1000).toLocaleTimeString([], {hour12:false}) : "";
-let S = null, busy = false, lastSeqSeen = 0;
-
-function toast(msg, err) {
-  const t = $("toast"); t.textContent = msg; t.className = "toast show" + (err ? " err" : "");
-  clearTimeout(toast.h); toast.h = setTimeout(() => t.className = "toast", err ? 4200 : 2600);
+const $ = id => document.getElementById(id);
+// Every server string goes through textContent / createTextNode. Nothing is parsed as HTML.
+function h(tag, props, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v === null || v === undefined || v === false) continue;
+    if (k === "class") e.className = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const kid of kids.flat(3)) {
+    if (kid === null || kid === undefined || kid === false) continue;
+    e.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return e;
 }
+const inr = n => "₹" + new Intl.NumberFormat("en-IN", {maximumFractionDigits: 0}).format(Number(n) || 0);
+const clock = at => { const d = new Date(at * 1000); return d.toLocaleTimeString("en-GB") + "." + String(d.getMilliseconds()).padStart(3, "0"); };
+const fill = (el, ...kids) => { el.replaceChildren(...kids.flat(3).filter(k => k !== null && k !== undefined && k !== false).map(k => k.nodeType ? k : document.createTextNode(String(k)))); };
 
-async function api(path, body) {
-  const opt = body === undefined ? {} : {method:"POST", headers:{"Content-Type":"application/json","X-TripWire-Client":"dashboard"}, body:JSON.stringify(body)};
-  const r = await fetch(path, opt);
-  let data = {};
-  try { data = await r.json(); } catch (e) { throw new Error("server returned non-JSON (" + r.status + ")"); }
-  if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
-  if (data.state) render(data.state);
-  return data;
-}
+let S = null, mode = "task", lastJson = "", showReplay = false, scenariosLoaded = false, auditResult = null;
+const seen = new Set(), open = new Set();
 
-async function act(path, body, okMsg) {
-  if (busy) return null;
-  busy = true; document.body.style.cursor = "progress";
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 6000); }
+
+async function post(path, body) {
   try {
-    const d = await api(path, body || {});
-    if (okMsg) toast(typeof okMsg === "function" ? okMsg(d) : okMsg);
-    return d;
-  } catch (e) { toast(e.message, true); return null; }
-  finally { busy = false; document.body.style.cursor = ""; }
+    const res = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json", "X-TripWire-Client": "dashboard"}, body: JSON.stringify(body || {})});
+    const data = await res.json();
+    if (!res.ok) { toast(res.status + " · " + (data.error || "request refused")); await refresh(); return null; }
+    if (data.state) apply(data.state);
+    return data;
+  } catch (err) { toast("Server unreachable: " + err.message); return null; }
+}
+async function refresh() {
+  try { const res = await fetch("/api/state"); apply(await res.json()); }
+  catch (err) { $("footNote").textContent = "server unreachable"; }
+}
+function apply(state) {
+  const json = JSON.stringify(state, (k, v) => k === "now" ? undefined : v);
+  S = state;
+  if (json === lastJson) return;
+  lastJson = json;
+  render();
 }
 
-function decisionText(d, nested) {
-  if (!d) return "";
-  let s = `#${d.seq} ${d.message_type}\n${d.sender_id} -> ${d.receiver_id}\n${d.outcome}  ${d.code}\n${d.reason}`;
-  if (d.would_fail) s += `\n(would also fail: ${d.would_fail})`;
-  if (d.handled) s += `\nreceiver: ${d.handled}`;
-  if (d.action) s += `\n\n  -> ${decisionText(d.action, true).split("\n").join("\n     ")}`;
-  if (!nested) s += `\ncorrelation ${d.correlation_id} · ${d.latency_ms} ms · origin ${d.origin}`;
-  return s;
+/* ---------------------------------------------------------------- rendering */
+function stamp(text) {
+  const known = ["ALLOW", "ACCEPTED", "DONE", "APPROVED", "BLOCK", "REJECTED", "BLOCKED", "BREACHED", "APPROVAL", "PENDING_APPROVAL"];
+  return h("span", {class: "stamp s-" + (known.includes(text) ? text : "other")}, text || "-");
+}
+function ledgerRow(key, time, st, action, why, meta, detail, wide) {
+  const isNew = !seen.has(key); seen.add(key);
+  const row = h("div", {class: "lrow" + (isNew ? " new" : ""), tabindex: "0", role: "button", "aria-expanded": open.has(key) ? "true" : "false"},
+    h("span", {class: "t num"}, time), wide ? null : stamp(st),
+    h("span", {class: "act"}, wide ? [stamp(st), " ", action] : action),
+    why ? h("span", {class: "why"}, why) : null, meta ? h("span", {class: "meta"}, meta) : null);
+  if (open.has(key)) row.append(h("pre", {class: "detail", onclick: ev => ev.stopPropagation()}, JSON.stringify(detail, null, 2)));
+  const toggle = () => { open.has(key) ? open.delete(key) : open.add(key); render(); };
+  row.addEventListener("click", toggle);
+  row.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggle(); } });
+  return row;
+}
+function taskRow(prefix, e, wide) {
+  const src = e.source || {};
+  const span = src.span ? ` [${src.span[0]}-${src.span[1]}]` : "";
+  const meta = [`source ${src.context || "?"}:${src.id || "?"}${span} (${src.trust || "?"})`, `code ${e.code}`,
+    e.codes && e.codes.length > 1 ? "also " + e.codes.slice(1).join(", ") : null, `risk ${e.risk}`,
+    e.data_scope && e.data_scope.length ? "scope " + e.data_scope.join(", ") : null,
+    e.kind === "tool.decision" ? (e.executed ? "tool executed" : "tool not executed") : null,
+    e.would ? `protected would ${e.would.decision} · ${e.would.code}` : null].filter(Boolean).join(" · ");
+  const detail = {justification: {purpose: e.purpose, evidence: e.evidence}, checks: e.checks, intent: e.intent,
+    lineage_id: e.lineage_id, approval_id: e.approval_id, args: e.args, destinations: e.destinations, event: e.kind, seq: e.seq};
+  return ledgerRow(prefix + e.seq, clock(e.at), e.decision, e.action, e.reason, meta, detail, wide);
+}
+function feedRow(d) {
+  const rows = [];
+  const push = (x, depth) => {
+    const meta = `${x.sender_id} → ${x.receiver_id} · code ${x.code}` + (x.would_fail ? ` · would also fail ${x.would_fail}` : "") +
+      ` · origin ${x.origin} · firewall ${x.firewall_mode} · profile ${x.profile}`;
+    rows.push(ledgerRow("f" + x.seq, clock(x.at), x.outcome, (depth ? "↳ " : "") + x.message_type, x.handled || x.reason, meta, x));
+    if (x.action) push(x.action, depth + 1);
+  };
+  push(d, 0);
+  return rows;
 }
 
-function setEdge(id, cls) { const e = $(id); e.setAttribute("class", "edge" + (cls ? " " + cls + " anim" : "")); }
-function cls(o) { return o === "ACCEPTED" ? "ok" : o === "BLOCKED" ? "blk" : "no"; }
+function renderTop() {
+  const t = S.task, fw = S.firewall;
+  $("taskLabel").textContent = mode === "task" ? "Task" : "Mode";
+  $("taskCell").textContent = mode === "task" ? (t ? `${t.task_id} · ${t.goal} · ${t.state.replace("_", " ")}` : "no task assigned")
+    : `event stream · alert at score ≥ ${S.threshold}`;
+  const fwc = $("fwCell"); fwc.textContent = fw.mode; fwc.className = "v fw-" + fw.mode;
+  const pc = $("profCell"); pc.textContent = S.profile === "strict" ? "Protected" : "Replay-baseline (insecure)"; pc.className = "v " + (S.profile === "strict" ? "" : "c-block");
+  $("hashCell").textContent = t ? t.manifest_hash.slice(0, 24) + "…" : "-";
+  $("hashCell").title = t ? t.manifest_hash : "";
+}
 
-function renderFlow(s) {
-  ["e-mg","e-gv","e-vg","e-ge","e-ag"].forEach((e) => setEdge(e, ""));
-  const d = s.feed[0];
-  const iso = s.firewall.mode !== "NORMAL";
-  $("n-mon").setAttribute("class", "node" + (iso ? " iso" : " on"));
-  $("n-val").setAttribute("class", "node" + (iso ? " iso" : " on"));
-  $("n-adv").setAttribute("class", "node" + (s.agents.adversary.state === "attacking" ? " bad" : ""));
-  $("n-gw").setAttribute("class", "node " + (s.firewall.mode === "LOCKDOWN" ? "bad" : iso ? "iso" : "on"));
-  $("t-mon").textContent = `score ${s.agents.monitor.score} · ${s.agents.monitor.state}`;
-  $("t-val").textContent = `${s.agents.validator.handled} handled · ${s.agents.validator.state}`;
-  $("t-adv").textContent = s.agents.adversary.state === "attacking" ? `running ${s.agents.adversary.run.current || ""}` : "idle · unregistered";
-  $("t-mail").textContent = `${s.metrics.emails_delivered} simulated deliveries`;
-  $("t-gw").textContent = s.profile === "strict" ? "strict · default-deny" : "BASELINE (insecure)";
-  $("t-gw2").textContent = s.firewall.mode;
-  if (!d) return;
-  const fromAttack = (d.origin || "").startsWith("attack:");
-  setEdge(fromAttack ? "e-ag" : "e-mg", cls(d.outcome));
-  if (d.outcome === "ACCEPTED") {
-    if (d.message_type === "action.email.send") setEdge("e-ge", d.email ? "ok" : "no");
-    else setEdge("e-gv", d.code === "VALIDATOR_REFUSED" ? "no" : "ok");
-    if (d.action) { setEdge("e-vg", cls(d.action.outcome)); setEdge("e-ge", d.action.email ? "ok" : cls(d.action.outcome === "ACCEPTED" ? "REJECTED" : d.action.outcome)); }
+function renderDocs() {
+  const t = S.task, box = $("docs");
+  if (!t) { fill(box, h("p", {class: "empty"}, "Choose a scenario and assign the task. The manifest is issued and signed at that moment.")); return; }
+  const papers = t.documents.map(doc => {
+    const lines = doc.text.split("\n"), out = [];
+    let pos = 0, section = "top";
+    lines.forEach((line, i) => {
+      const start = pos, end = pos + line.length; pos = end + 1;
+      const hits = doc.spans.filter(s => s.start < end && s.end > start);
+      const injected = t.injected.includes(line);
+      const m = /^([A-Za-z][A-Za-z /]{1,22}):\s(.*)$/.exec(line);
+      let node;
+      if (!line.trim()) return;
+      if (i === 0) node = h("div", {class: "vend"}, line);
+      else if (/^(TAX INVOICE|SUPPORTING DOCUMENT)$/.test(line)) node = h("div", {class: "kind"}, line);
+      else if (/^(Items|Notes|Delivery note)$/.test(line)) { section = line; node = h("div", {class: "head"}, line); }
+      else if (m && !hits.length && !injected && section !== "Notes") node = h("div", {class: "kv" + (m[1] === "Total payable" ? " total" : "")}, h("b", null, m[1]), h("span", null, m[2]));
+      else {
+        const parts = []; let cur = start;
+        hits.sort((a, b) => a.start - b.start).forEach(s => {
+          const a = Math.max(s.start, start), b = Math.min(s.end, end);
+          if (a > cur) parts.push(doc.text.slice(cur, a));
+          parts.push(h("span", {class: "uinstr", title: s.reasons.join("; ")}, doc.text.slice(a, b)));
+          cur = b;
+        });
+        if (cur < end) parts.push(doc.text.slice(cur, end));
+        node = h("div", {class: "ln" + (hits.length ? " hit" : "")}, parts,
+          hits.length ? h("span", {class: "note"}, "Untrusted · cannot grant authority") : null,
+          injected ? h("span", {class: "inj"}, "Inserted by Agent 3 (judge mode)" + (hits.length ? "" : " · not tagged by the detector; still enforced")) : null);
+      }
+      out.push(node);
+    });
+    return h("div", {class: "paper"}, h("span", {class: "tag"}, `${doc.doc_id} · ${doc.role} · ${doc.trust.replace("_", " ")}`), out);
+  });
+  fill(box, papers);
+}
+
+function renderPath() {
+  const set = (id, cls) => { $(id).className = (id === "e4" ? "stem " : "edge ") + (cls || ""); };
+  const cls = d => d === "ALLOW" || d === "ACCEPTED" ? "allow" : d === "APPROVAL" ? "wait" : "block";
+  let note = "No decision yet.";
+  if (mode === "task") {
+    $("n1").textContent = "Intake agent";
+    $("n2").textContent = "Policy validator · " + S.agents.validator.reviewed + " reviewed";
+    $("n4t").textContent = "Tools"; $("n4").textContent = "8 mock enterprise tools";
+    const rows = S.task ? S.task.timeline.filter(e => e.kind === "tool.decision" || e.kind === "tool.refused" || e.kind.startsWith("approval.e") || e.kind === "approval.blocked") : [];
+    const last = rows[rows.length - 1];
+    if (last) {
+      const reached = last.kind !== "tool.refused";
+      set("e1", "live"); set("e2", reached ? "live" : "block"); set("e3", reached ? cls(last.decision) : "");
+      note = `Last decision: ${last.action} → ${last.decision} · ${last.code}. ` + (last.executed ? "Tool executed." : "Tool not executed.");
+      if (S.task.risk.alerted) note += ` Agent 2 raised the internal SOC alert (task risk crossed ${S.task.risk.threshold}).`;
+    } else { set("e1", ""); set("e2", ""); set("e3", ""); }
+    $("pathAside").textContent = S.task ? `task risk ${S.task.risk.score} / ${S.task.risk.threshold}` : "";
+  } else {
+    $("n1").textContent = "Event monitor · score " + S.agents.monitor.score;
+    $("n2").textContent = "Validator · " + S.agents.validator.handled + " handled";
+    $("n4t").textContent = "Outbox"; $("n4").textContent = "simulated SOC email";
+    const last = S.feed.find(d => d.origin === "legit");
+    if (last) {
+      const ok = last.outcome === "ACCEPTED";
+      set("e1", "live"); set("e2", ok ? "allow" : "block");
+      const mail = last.action && last.action.email;
+      set("e3", mail ? "allow" : last.action ? "block" : "");
+      note = `Last message: ${last.message_type} → ${last.outcome} · ${last.code}` + (mail ? ". Email simulated to " + mail.to.join(", ") + "." : ".");
+    } else { set("e1", ""); set("e2", ""); set("e3", ""); }
+    $("pathAside").textContent = `score ${S.agents.monitor.score} / ${S.threshold}`;
+  }
+  const atk = S.attack_log[0];
+  $("n3").textContent = "Red team · " + S.agents.adversary.state + (atk ? " · last " + atk.scenario : "");
+  set("e4", atk ? (atk.outcome === "ACCEPTED" ? "live" : atk.outcome === "SKIPPED" ? "" : "block") : "");
+  if (atk) note += ` Agent 3 last channel attack: ${atk.scenario} → ${atk.outcome} · ${atk.code}.`;
+  $("ngw").textContent = S.firewall.mode === "NORMAL" ? "default deny · " + S.profile : "firewall " + S.firewall.mode;
+  $("pathNote").textContent = note;
+}
+
+function renderApprovals() {
+  const box = $("approvals");
+  const pending = mode === "task" && S.task ? S.task.approvals.filter(a => a.status === "PENDING") : [];
+  fill(box, pending.map(a => {
+    const ev = a.evidence.map(e => `${e.source.context}:${e.source.id}${e.source.span ? ` [${e.source.span[0]}-${e.source.span[1]}]` : ""} (${e.source.trust}${e.verified ? ", verified quote" : ", unverified"}) “${e.claim}”`);
+    const act = `${a.tool}(${Object.entries(a.args).map(([k, v]) => k + "=" + v).join(", ")})`;
+    const decide = d => post(`/api/tasks/${a.task_id}/approval`, {approval_id: a.id, decision: d});
+    return h("div", {class: "card"},
+      h("div", {class: "label c-wait"}, `Pending approval · ${a.id} · expires ${clock(a.expires_at)}`),
+      h("h3", null, "A person must decide this. The tool has not run."),
+      h("dl", null,
+        h("dt", null, "Action"), h("dd", {class: "mono"}, act),
+        h("dt", null, "Justification"), h("dd", null, a.justification.purpose + ` (agent rated its own risk “${a.justification.agent_risk_level}”)`),
+        h("dt", null, "Evidence source"), h("dd", null, ev.map(x => h("div", null, x)), a.untrusted_only ? h("div", {class: "c-block"}, "Only untrusted content stands behind this request.") : null),
+        h("dt", null, "Affected data"), h("dd", {class: "mono"}, a.affected_data.join(", ") + (a.amount_inr ? " · " + inr(a.amount_inr) : "")),
+        h("dt", null, "Risk"), h("dd", null, `${a.risk} · ${a.triggers.join(", ")}`)),
+      h("div", {class: "row", style: "margin:0"},
+        h("button", {class: "btn ok", onclick: () => decide("approve")}, "Approve"),
+        h("button", {class: "btn danger", onclick: () => decide("reject")}, "Reject")));
+  }));
+}
+
+function renderLedger() {
+  const box = $("ledger"), atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+  if (mode === "task") {
+    const t = S.task;
+    $("ledgerAside").textContent = t ? `${t.timeline.length} events · click a row for justification and checks` : "";
+    fill(box, t && t.timeline.length ? t.timeline.map(e => taskRow(t.task_id + ":", e)) : h("div", {class: "empty"}, "No events. Assign a task, then run Agent 1."));
+    if (atBottom) box.scrollTop = box.scrollHeight;
+  } else {
+    $("ledgerAside").textContent = `${S.metrics.messages} gateway decisions · newest first`;
+    fill(box, S.feed.length ? S.feed.map(feedRow) : h("div", {class: "empty"}, "No traffic yet. Step a stream on the left."));
   }
 }
 
-function kpi(label, val, tone) { return `<div class="kpi ${tone || ""}"><b>${esc(val)}</b><span>${esc(label)}</span></div>`; }
+function reportBlock(r) {
+  const tools = list => list.map(t => t.tool + (t.count > 1 ? " ×" + t.count : "")).join(", ") || "none";
+  return [h("div", {class: "sev " + r.severity}, r.severity),
+    h("div", {class: "label"}, `${r.containment.replace("_", " ")} · attempted ${r.attempted_severity}` + (r.counterfactual ? " · counterfactual" : "")),
+    h("dl", {class: "kv2 num", style: "margin-top:8px"},
+      h("dt", null, "Sensitive records protected"), h("dd", null, r.sensitive_records_protected),
+      h("dt", null, "Sensitive records exposed"), h("dd", {class: r.sensitive_records_exposed ? "c-block" : ""}, r.sensitive_records_exposed),
+      h("dt", null, "Canaries protected / exposed"), h("dd", {class: r.canaries_exposed ? "c-block" : ""}, `${r.canaries_protected} / ${r.canaries_exposed}`),
+      h("dt", null, "Amount at risk"), h("dd", null, inr(r.amount_at_risk_inr)),
+      h("dt", null, "Blocked tools"), h("dd", null, tools(r.blocked_tools)),
+      h("dt", null, "Paused for approval"), h("dd", null, tools(r.approval_tools)),
+      h("dt", null, "Ran against policy"), h("dd", {class: r.unsafe_executed_tools.length ? "c-block" : ""}, tools(r.unsafe_executed_tools)),
+      h("dt", null, "External destinations tried"), h("dd", null, r.external_destinations_attempted.join(", ") || "none"),
+      h("dt", null, "External destinations reached"), h("dd", {class: r.external_destinations_reached.length ? "c-block" : ""}, r.external_destinations_reached.join(", ") || "none")),
+    h("p", {class: "hint", style: "margin-top:8px"}, r.summary)];
+}
 
-function render(s) {
-  S = s;
-  const fw = s.firewall, m = s.metrics;
-  // header + banners
-  const mp = $("modePill"); mp.className = "pill m-" + fw.mode; mp.lastElementChild.textContent = "FIREWALL " + fw.mode;
-  const pp = $("profilePill"); pp.textContent = "profile: " + s.profile; pp.className = "pill " + (s.profile === "strict" ? "m-NORMAL" : "m-LOCKDOWN");
-  $("baselineBanner").classList.toggle("show", s.profile !== "strict");
-  const lb = $("lockBanner");
-  lb.classList.toggle("show", fw.mode === "LOCKDOWN");
-  if (fw.mode === "LOCKDOWN") lb.innerHTML = `<b>LOCKDOWN${fw.automatic ? " (automatic)" : " (manual)"}.</b> ${esc(fw.reason)}. All agent traffic and email actions are denied until an operator enters the recovery code printed in the server terminal.`;
-  // firewall card
-  $("fwMode").textContent = fw.mode; $("fwMode").style.color = {NORMAL:"var(--green)",BLOCKING:"var(--amber)",LOCKDOWN:"var(--red)"}[fw.mode];
-  $("fwReason").textContent = `${fw.reason} · by ${fw.actor} · ${tm(fw.since)}`;
-  $("fwAuto").textContent = fw.automatic ? "automatic" : "manual";
-  $("btnBlock").disabled = fw.mode !== "NORMAL"; $("btnRelease").disabled = fw.mode !== "BLOCKING";
-  $("btnLock").disabled = fw.mode === "LOCKDOWN"; $("btnRecover").disabled = fw.mode === "NORMAL";
-  // risk
-  const score = s.agents.monitor.score, thr = s.threshold;
-  $("riskVal").textContent = score; $("riskVal").style.color = score >= thr ? "var(--red)" : score >= thr * .7 ? "var(--amber)" : "var(--green)";
-  $("thrVal").textContent = thr; $("riskBar").style.width = score + "%";
-  $("riskBar").style.background = score >= thr ? "var(--red)" : "var(--cyan)"; $("thrMark").style.left = thr + "%";
-  if (document.activeElement !== $("thrInput")) $("thrInput").value = thr;
-  $("incident").textContent = s.agents.monitor.incident ? `open incident ${s.agents.monitor.incident} · ${s.agents.monitor.status}` : s.agents.monitor.status;
-  // pressure
-  const p = s.pressure; $("pVal").textContent = p.value; $("pThr").textContent = p.threshold;
-  $("pBar").style.width = Math.min(100, p.value / p.threshold * 100) + "%";
-  $("pBar").style.background = p.value / p.threshold > .75 ? "var(--red)" : p.value / p.threshold > .4 ? "var(--amber)" : "var(--cyan)";
-  $("autoLock").checked = p.auto_lockdown;
-  // kpis
-  $("kpis").innerHTML = [
-    kpi("messages", m.messages), kpi("accepted", m.accepted, "good"), kpi("rejected", m.rejected), kpi("blocked (firewall)", m.blocked),
-    kpi("attack msgs", m.attack_attempts), kpi("attacks stopped", m.attack_attempts ? `${m.attack_stopped}/${m.attack_attempts}` : "-", "good"),
-    kpi("unauthorized emails", m.unauthorized_emails, m.unauthorized_emails ? "bad" : "good"), kpi("emails simulated", m.emails_delivered),
-  ].join("");
-  // flow + last
-  renderFlow(s);
-  const d = s.feed[0];
-  $("lastText").textContent = d ? decisionText(d) : "No traffic yet. Use the controls below or the guided demo.";
-  $("lastBadge").innerHTML = d ? `<span class="badge b-${esc(d.outcome)}">${esc(d.outcome)}</span>` : "";
-  // streams
-  $("stBasePos").textContent = `${s.streams.baseline.pos}/${s.streams.baseline.events.length}`;
-  $("stIncPos").textContent = `${s.streams.incident.pos}/${s.streams.incident.events.length}`;
-  if (!$("evSel").options.length) $("evSel").innerHTML = Object.entries(s.events).map(([k, w]) => `<option value="${esc(k)}">${esc(k)} (+${w})</option>`).join("");
-  // scenarios
-  if (!$("scen").children.length) {
-    $("scen").innerHTML = s.scenarios.map((x) => `<div class="sc"><div class="row" style="justify-content:space-between"><span class="t">${esc(x.title)}</span><span class="tag ${esc(x.threat_model)}">${esc(x.threat_model)}</span></div><div class="d">${esc(x.description)}</div><div class="row" style="justify-content:space-between"><span class="mono dim" style="font-size:11px">expect ${esc(x.expected)}</span><button class="small" data-atk="${esc(x.id)}">Launch</button></div></div>`).join("");
+function renderReplay() {
+  const r = S.replay;
+  $("replayView").hidden = !(showReplay && r && mode === "task");
+  $("ledgerView").hidden = !$("replayView").hidden;
+  if ($("replayView").hidden) return;
+  $("replayNote").textContent = `${r.label} · ${r.scenario.title}` + (r.instruction ? ` · with inserted instruction “${r.instruction}”` : "") + ". " + r.note;
+  const side = (el, title, v, prefix) => fill(el,
+    h("div", {class: "label " + (v.counterfactual ? "c-block" : "c-allow")}, title), reportBlock(v.report),
+    h("div", {class: "ledger"}, v.timeline.filter(e => e.kind === "tool.decision").map(e => taskRow(prefix + r.at + ":", e, true))));
+  side($("rpBase"), "Baseline (counterfactual) · no TripWire", r.baseline, "rb");
+  side($("rpProt"), "Protected · TripWire gateway", r.protected, "rp");
+}
+
+function renderSpec() {
+  const t = S.task, box = $("spec");
+  if (!t) { fill(box, h("p", {class: "empty"}, "No manifest. One is issued per task from the system policy and the user's task only.")); $("capAside").textContent = ""; return; }
+  const m = t.manifest, cap = t.capability;
+  $("capAside").textContent = cap.active ? "capability active" : "capability expired";
+  $("capAside").className = "aside " + (cap.active ? "c-allow" : "c-block");
+  const mark = {allowed: ["✓", "c-allow"], forbidden: ["✗", "c-block"], approval: ["?", "c-wait"]};
+  const row = (k, v) => h("div", {class: "r"}, h("div", {class: "label"}, k), h("div", null, v));
+  fill(box,
+    row("Task", `${m.task_id} · ${m.goal}`),
+    row("Tools", cap.tools.map(x => h("div", {class: "tool"}, h("span", {class: "m " + mark[x.status][1]}, mark[x.status][0]), h("span", {class: "nm"}, x.tool),
+      h("span", {class: "x"}, (x.status === "approval" ? "approval only · " : "") + (x.last_decision ? "last " + x.last_decision + " · " : "") + "ran " + x.executions + "×")))),
+    row("Data scope", h("span", {class: "mono"}, m.allowed_data.join(", "))),
+    row("Payment limit", inr(m.payment_limit_inr)),
+    row("Destinations", h("span", {class: "mono"}, m.allowed_destinations.join(", ")), ),
+    row("Needs approval", m.approval_required.join(", ")),
+    row("Task effects", m.goal_effects.join(", ")),
+    row("Expires", `on task completion, or ${clock(m.expires_at)}` + (cap.active ? "" : ` · expired (${t.closed_reason || "lifetime elapsed"})`)),
+    row("Signed", h("span", {class: "hash"}, `HMAC-SHA256 · ${t.manifest_key_id} · ${t.manifest_hash}`)),
+    row("Policy", m.policy_id + " · agent planner " + (t.planner || "-")),
+    row("Contexts", S.contexts.map(c => h("div", null, `${c.label}: ${c.trust.replace(/_/g, " ")} · ${c.can_authorize ? "can authorise" : "cannot authorise"}`))));
+}
+
+function mailList(el) {
+  const items = S.outbox.slice(0, 8).map(r => {
+    const sent = r.status === "SIMULATED_DELIVERY", soc = r.kind === "soc_alert";
+    const cls = !sent ? "c-block" : soc ? "c-allow" : r.external ? "c-block" : "";
+    const kind = !sent ? `${r.status} · ${r.code || ""}` : soc ? "Internal SOC alert · allowed" : (r.external ? "Agent email · external" : "Agent email");
+    return h("div", {class: "mail"}, h("div", {class: "k " + cls}, kind + " · " + clock(r.at)),
+      h("div", null, sent ? `to ${r.to.join(", ")} · ${r.subject}` : r.subject), h("div", {class: "muted"}, sent ? r.body : r.reason));
+  });
+  const eg = S.egress.slice(0, 4).map(r => h("div", {class: "mail"}, h("div", {class: "k c-block"}, `Upload · ${r.status} · ${clock(r.at)}`),
+    h("div", null, `to ${r.destination} · ${r.records} records · ${r.bytes} bytes`)));
+  fill(el, items.length || eg.length ? [items, eg] : h("p", {class: "empty"}, "Nothing sent. Blocked email attempts and the one allowed SOC alert appear here."));
+}
+
+function renderBand() {
+  const t = S.task, res = t && t.result;
+  const kv = pairs => h("dl", {class: "kv2 num"}, pairs.map(([k, v]) => [h("dt", null, k), h("dd", null, v)]));
+  fill($("fields"), res && res.fields ? kv([["Invoice", res.fields.invoice_id], ["Vendor", `${res.fields.vendor_name} (${res.fields.vendor_id})`],
+      ["Amount", inr(res.fields.amount_inr)], ["Due date", res.fields.due_date], ["Bank account", `${res.fields.ifsc} · ${res.fields.bank_account}`],
+      ["Source", res.fields.source]]) : h("p", {class: "empty"}, "No fields extracted yet."));
+  const d = res && res.drafts.length ? res.drafts[res.drafts.length - 1] : null;
+  fill($("draft"), d ? [kv([["Draft", d.draft_id], ["Amount", inr(d.amount_inr)], ["Pay to", `${d.vendor_name}`], ["Account", `${d.pay_to_ifsc} · ${d.pay_to_account}`],
+      ["Matches invoice", d.matches_invoice ? "yes" : "no"], ["Status", d.status]]),
+      d.pay_to_changed ? h("p", {class: "c-block"}, "Pay-to account was changed during this task.") : null]
+    : h("p", {class: "empty"}, t && t.finished ? "No payment draft was created." : "No payment draft yet."));
+  fill($("blast"), t && t.ran ? reportBlock(t.report) : h("p", {class: "empty"}, "Computed from lineage and gateway decisions after the agent runs."));
+  mailList($("outbox")); mailList($("outbox2"));
+}
+
+function renderEvent() {
+  const a = S.agents;
+  $("evScore").textContent = a.monitor.score;
+  $("evScore").className = "big num " + (a.monitor.score >= S.threshold ? "c-block" : "");
+  $("evStatus").textContent = `${a.monitor.status} · signals: ${a.monitor.signals.join(", ") || "none"} · open incident: ${a.monitor.incident || "none"}`;
+  $("streamHint").textContent = Object.entries(S.streams).map(([n, s]) => `${n} ${s.pos}/${s.events.length}`).join(" · ") + " · score = min(100, 0.8 × previous + weight)";
+  $("a2Status").textContent = a.validator.status;
+  if (!$("evButtons").childElementCount) fill($("evButtons"), Object.entries(S.events).map(([name, w]) => h("button", {class: "btn", onclick: () => post("/api/event", {type: name})}, `${name} +${w}`)));
+  if (document.activeElement !== $("thrIn")) $("thrIn").value = S.threshold;
+  const row = (k, v) => h("div", {class: "r"}, h("div", {class: "label"}, k), h("div", null, v));
+  fill($("evSpec"), row("Threshold", `alert when score ≥ ${S.threshold}`), row("Route", "Agent 1 → gateway → Agent 2 → gateway → email action"),
+    row("Recipient", "soc-oncall@tripwire.invalid (server side; a sender cannot choose it)"), row("Action policy", "one email per incident · at most 5 per minute"),
+    row("Registered keys", h("span", {class: "mono"}, a.gateway.keys.join(", "))), row("Agent 3", "unregistered key · " + a.adversary.state));
+  const m = S.metrics, kv = pairs => h("dl", {class: "kv2 num"}, pairs.map(([k, v]) => [h("dt", null, k), h("dd", null, v)]));
+  fill($("evMetrics"), kv([["Messages", m.messages], ["Accepted", m.accepted], ["Rejected", m.rejected], ["Blocked by firewall", m.blocked],
+    ["Emails simulated", m.emails_delivered], ["Email attempts denied", m.email_denied], ["Validator refusals", m.validator_refused],
+    ["Tool requests", m.tool_requests], ["Tools executed", m.tools_executed]]));
+  fill($("evStreams"), Object.entries(S.streams).map(([n, s]) => h("div", {class: "mail"}, h("div", {class: "k"}, n),
+    h("div", {class: "mono"}, s.events.map((e, i) => h("span", {class: i < s.pos ? "" : "muted"}, (i ? " → " : "") + e))))));
+  fill($("evAudit"), kv([["Entries", S.audit_count], ["Head", S.audit_head.slice(0, 20) + "…"]]),
+    h("div", {style: "max-height:150px;overflow:auto;margin-top:6px"}, h("table", null, S.audit.slice(0, 12).map(e => h("tr", null, h("td", {class: "num"}, e.seq), h("td", {class: "mono"}, e.kind))))));
+}
+
+function renderFirewall() {
+  const fw = S.firewall;
+  $("fwAside").textContent = fw.mode; $("fwAside").className = "aside fw-" + fw.mode;
+  $("fwReason").textContent = `${fw.reason} · by ${fw.actor}${fw.automatic ? " (automatic)" : ""} · since ${clock(fw.since)}` +
+    (fw.recovery_locked_until ? " · recovery throttled" : "");
+  $("fwBlock").disabled = fw.mode !== "NORMAL"; $("fwRelease").disabled = fw.mode !== "BLOCKING"; $("fwLock").disabled = fw.mode === "LOCKDOWN";
+  $("recoverBtn").disabled = fw.mode === "NORMAL";
+  $("pressure").textContent = `intrusion pressure ${S.pressure.value} / ${S.pressure.threshold}`;
+}
+
+function renderDrawer() {
+  const run = S.agents.adversary.run, m = S.metrics;
+  $("drawerAside").textContent = `10 protocol attacks · ${m.attack_attempts} sent · ${m.attack_passed} passed · profile ${S.profile}`;
+  $("suiteState").textContent = run.running ? `running ${run.current || ""} · ${run.done}/${run.total}` : run.finished_at ? `finished ${run.done}/${run.total}` + (run.lockdown_after_s != null ? ` · lockdown after ${run.lockdown_after_s}s` : "") : "idle";
+  $("suiteBtn").disabled = run.running;
+  if (!$("attacks").childElementCount) fill($("attacks"), S.scenarios.map(a => h("div", {class: "atk"}, h("span", null, `${a.title} · ${a.threat_model}`),
+    h("small", null, `${a.description} Expected: ${a.expected}`), h("button", {class: "btn", onclick: () => post("/api/attack/" + a.id, {})}, "Run"))));
+  fill($("attackLog"), h("tr", null, ["Time", "Attack", "Result", "Code"].map(x => h("th", null, x))),
+    S.attack_log.slice(0, 30).map(r => h("tr", null, h("td", {class: "num"}, clock(r.at)), h("td", null, r.scenario),
+      h("td", {class: r.outcome === "ACCEPTED" ? "c-allow" : r.outcome === "SKIPPED" ? "muted" : "c-block"}, r.outcome), h("td", {class: "mono"}, r.code + (r.would_fail ? ` (${r.would_fail})` : "")))));
+  $("profStrict").disabled = S.profile === "strict"; $("profBase").disabled = S.profile === "baseline";
+  $("autoBtn").textContent = S.pressure.auto_lockdown ? "Turn auto-lockdown off" : "Turn auto-lockdown on";
+  $("autoState").textContent = (S.pressure.auto_lockdown ? "on" : "off") + ` · limit ${S.pressure.threshold}`;
+  $("auditState").textContent = auditResult ? (auditResult.ok ? `chain ok · ${auditResult.checked} entries` : `chain BROKEN at entry ${auditResult.broken_at}`) : `${S.audit_count} entries · head ${S.audit_head.slice(0, 16)}…`;
+  $("auditState").className = "hint mono " + (auditResult ? (auditResult.ok ? "c-allow" : "c-block") : "");
+  fill($("atkMetrics"), [["Attack messages", m.attack_attempts], ["Detected", m.attack_detected], ["Passed", m.attack_passed],
+    ["Unauthorised emails", m.unauthorized_emails], ["Avg decision ms", m.attack_decision_ms_avg ?? "-"]].map(([k, v]) => [h("dt", null, k), h("dd", {class: "num"}, v)]));
+}
+
+function renderControls() {
+  if (!scenariosLoaded) {
+    fill($("scenario"), S.doc_scenarios.map(sc => h("option", {value: sc.id}, `${sc.title} · ${sc.invoice_id} · ${inr(sc.amount_inr)}`)));
+    $("scenario").value = "footer_injection"; scenariosLoaded = true; scenarioChanged();
   }
-  const run = s.agents.adversary.run;
-  $("seqBtn").disabled = run.running; $("stopBtn").disabled = !run.running;
-  $("seqStatus").textContent = run.running ? `Sequence running: ${run.done}/${run.total} scenarios · now ${run.current || "…"}`
-    : run.finished_at ? `Last sequence ${run.stopped ? "stopped" : "finished"}: ${run.done}/${run.total} scenarios${run.lockdown_after_s != null ? ` · auto-LOCKDOWN after ${run.lockdown_after_s}s` : ""}.`
-    : "Attacker idle. All attacks are local and bounded; they use the same gateway path as real agents.";
-  // feed
-  $("feed").innerHTML = s.feed.map((x) => {
-    const a = (x.origin || "").startsWith("attack:");
-    const sub = x.action ? `<div class="dim mono" style="font-size:11px">-> ${esc(x.action.message_type)} <span class="badge b-${esc(x.action.outcome)}">${esc(x.action.code)}</span>${x.action.email ? " mail " + esc(x.action.email.id) : ""}</div>` : "";
-    return `<tr class="${a ? "atk" : "leg"}"><td class="mono dim">${x.seq}</td><td><div class="mono" style="font-size:12px">${esc(x.message_type)}</div><div class="dim" style="font-size:11px">${esc(x.sender_id)}${a ? " · " + esc(x.origin) : ""}</div></td><td><span class="badge b-${esc(x.outcome)}">${esc(x.outcome)}</span><div class="mono dim" style="font-size:11px">${esc(x.code)}</div></td><td style="font-size:12px">${esc(x.reason)}${x.would_fail ? `<div class="dim">would also fail: ${esc(x.would_fail)}</div>` : ""}${x.handled ? `<div class="dim">${esc(x.handled)}</div>` : ""}${sub}</td></tr>`;
-  }).join("") || `<tr><td colspan="4" class="dim">No decisions yet.</td></tr>`;
-  // outbox
-  $("outboxCount").textContent = `${m.emails_delivered} simulated deliveries · ${m.email_denied} denied attempts · file lines ${m.outbox_file_deliveries}`;
-  $("outbox").innerHTML = s.outbox.map((r) => `<tr><td class="mono dim">${esc(r.id)}</td><td><span class="badge b-${esc(r.status)}">${esc(r.status === "SIMULATED_DELIVERY" ? "SIMULATED" : r.status)}</span></td><td style="font-size:12px">${r.to.length ? `<div class="mono" style="color:${r.to.some((t) => t.includes("attacker")) ? "var(--red)" : "inherit"}">${esc(r.to.join(", "))}</div>` : ""}<div class="dim">${esc(r.subject)}</div></td><td style="font-size:12px"><div class="mono dim">${esc(r.correlation_id)}</div>${esc(r.code ? r.code + ": " : "")}${esc(r.reason)}</td></tr>`).join("") || `<tr><td colspan="4" class="dim">Outbox empty. Nothing has been sent (or attempted).</td></tr>`;
-  // attacks
-  $("atkSummary").textContent = m.attack_attempts ? `${m.attack_detected} identified by a specific check · ${m.attack_blocked} blocked by firewall · ${m.attack_passed} passed gateway` : "";
-  $("atk").innerHTML = s.attack_log.map((r) => `<tr><td style="font-size:12px">${esc(r.scenario)}</td><td><span class="badge b-${esc(r.outcome)}">${esc(r.outcome)}</span></td><td class="mono" style="font-size:11.5px">${esc(r.code)}${r.would_fail ? `<div class="dim">+${esc(r.would_fail)}</div>` : ""}</td><td style="font-size:12px">${esc(r.reason)}${r.email ? ' <b style="color:var(--red)">EMAIL SENT</b>' : ""}</td></tr>`).join("") || `<tr><td colspan="4" class="dim">No attacks launched.</td></tr>`;
-  // audit
-  $("auditHead").textContent = `${s.audit_count} entries · head ${s.audit_head}`;
-  $("audit").innerHTML = s.audit.map((e) => `<tr><td class="mono dim">${e.seq}</td><td class="mono dim" style="font-size:11px">${tm(e.ts)}</td><td style="font-size:12px"><span class="mono">${esc(e.kind)}</span> <span class="dim">${esc(summ(e))}</span></td></tr>`).join("");
-  $("paths").textContent = `outbox: ${s.paths.outbox}  ·  audit: ${s.paths.audit}`;
-  renderSteps();
+  const t = S.task;
+  $("runBtn").disabled = !t || t.ran;
+  $("injectBtn").disabled = !t || t.ran;
+  $("injectHint").textContent = !t ? "Assign a task first. Inserted text is document content and cannot grant authority."
+    : t.ran ? "The agent has already read this document. Assign a new task to insert again."
+    : "Inserted text is document content. It is read by the agent and cannot grant authority.";
+}
+function scenarioChanged() {
+  const sc = S.doc_scenarios.find(x => x.id === $("scenario").value); if (!sc) return;
+  $("scenarioHint").textContent = `${sc.summary} Expected: ${sc.expected}`;
+  $("goal").value = sc.goal;
 }
 
-function summ(e) {
-  const d = e.data || {};
-  if (e.kind === "gateway.decision") return `${d.type} ${d.sender} -> ${d.outcome} ${d.code}`;
-  if (e.kind === "firewall.transition") return `${d.from_mode} -> ${d.to_mode} (${d.automatic ? "auto" : d.actor}) ${d.reason}`;
-  if (e.kind === "email.delivered") return `${d.mail_id} to ${(d.to || []).join(", ")} [simulated]`;
-  return JSON.stringify(d).slice(0, 110);
+function render() {
+  if (!S) return;
+  for (const [id, on] of [["leftTask", mode === "task"], ["leftEvent", mode === "event"], ["rightTask", mode === "task"], ["rightEvent", mode === "event"],
+    ["bandTask", mode === "task"], ["bandEvent", mode === "event"]]) $(id).hidden = !on;
+  $("modeTask").setAttribute("aria-pressed", mode === "task"); $("modeEvent").setAttribute("aria-pressed", mode === "event");
+  renderTop(); renderControls(); renderPath(); renderApprovals(); renderFirewall(); renderDrawer(); renderBand();
+  if (mode === "task") { renderDocs(); renderSpec(); } else renderEvent();
+  renderReplay(); if (!$("ledgerView").hidden) renderLedger();
 }
 
-// ------------------------------------------------------------------ guided demo
-const STEPS = [
-  {t:"Fresh start", d:"Reset traffic, rewind streams, strict profile.", run: async () => {
-    if (S.firewall.mode !== "NORMAL") throw new Error("Firewall is " + S.firewall.mode + ". Release or recover first.");
-    await api("/api/reset", {}); await api("/api/profile", {profile:"strict"}); await api("/api/stream/reset", {});
-    await api("/api/auto-lockdown", {enabled:true}); }},
-  {t:"Normal communication", d:"Agent 1 sends 3 baseline events; all accepted, no email.", run: async () => { for (let i = 0; i < 3; i++) await api("/api/stream/step", {stream:"baseline"}); }},
-  {t:"Cross the threshold", d:"Incident stream: score climbs past 70, the alert is validated and one simulated email is delivered.", run: async () => {
-    await api("/api/stream/reset", {}); for (let i = 0; i < 5; i++) await api("/api/stream/step", {stream:"incident"}); }},
-  {t:"Attack the channel", d:"Tampering + forged sender. Both rejected with BAD_MAC; outbox unchanged.", run: async () => { await api("/api/attack/tamper", {}); await api("/api/attack/forged_sender", {}); }},
-  {t:"Engage kill switch", d:"Operator turns the firewall to BLOCKING (backend state).", run: async () => { await api("/api/firewall", {mode:"BLOCKING"}); }},
-  {t:"Protected action while blocked", d:"Agent 1 attempts the alert again. BLOCKED; no email is written.", run: async () => { await api("/api/alert", {}); }},
-  {t:"Full attack sequence", d:"Release, then run all 10 scenarios. Pressure builds until automatic LOCKDOWN.", run: async () => {
-    await api("/api/firewall", {mode:"NORMAL"}); await api("/api/attack-suite", {}); }},
-  {t:"Verify the audit trail", d:"Recompute the HMAC chain over every recorded decision.", run: async () => { const r = await api("/api/audit/verify", {}); return r.verify.ok ? `Audit chain OK: ${r.verify.checked} entries verified` : `TAMPERING DETECTED at #${r.verify.broken_at}`; }},
-  {t:"Authorized recovery", d:"Enter the recovery code from the terminal in the Firewall card and press Recover.", run: async () => {
-    const c = $("recCode").value.trim(); if (!c) { $("recCode").focus(); throw new Error("Type the recovery code from the server terminal first."); }
-    await api("/api/recover", {code:c}); $("recCode").value = ""; }},
-];
-let stepIdx = 0;
-function renderSteps() {
-  $("steps").innerHTML = STEPS.map((s, i) => `<div class="step ${i < stepIdx ? "done" : i === stepIdx ? "cur" : ""}"><span class="n">${i < stepIdx ? "✓" : i + 1}</span><div><b style="font-size:13px">${esc(s.t)}</b><small>${esc(s.d)}</small></div><button class="small" data-step="${i}">Run</button></div>`).join("");
-  $("demoNext").textContent = stepIdx >= STEPS.length ? "Restart demo" : `Run step ${stepIdx + 1}`;
-}
-async function runStep(i) {
-  if (busy) return; busy = true;
-  try { const msg = await STEPS[i].run(); stepIdx = i + 1; toast(msg || `Step ${i + 1} done: ${STEPS[i].t}`, msg && msg.startsWith("TAMPER")); }
-  catch (e) { toast(e.message, true); }
-  finally { busy = false; await refresh(); }
-}
-
-// ------------------------------------------------------------------ wiring
-async function refresh() { try { render(await api("/api/state")); } catch (e) { $("lastText").textContent = "Cannot reach the TripWire server: " + e.message; } }
-document.addEventListener("click", (ev) => {
-  const b = ev.target.closest("button"); if (!b) return;
-  if (b.dataset.atk) act("/api/attack/" + b.dataset.atk, {}, (d) => `${b.dataset.atk}: ` + (d.results.map((r) => r.code).filter((v, i, a) => a.indexOf(v) === i).join(", ") || "no messages"));
-  if (b.dataset.step) runStep(Number(b.dataset.step));
-});
-$("demoNext").onclick = () => { if (stepIdx >= STEPS.length) stepIdx = 0; runStep(stepIdx); };
-$("resetBtn").onclick = () => act("/api/reset", {}, "Demo reset (firewall mode preserved)").then(() => { stepIdx = 0; renderSteps(); });
-$("btnBlock").onclick = () => act("/api/firewall", {mode:"BLOCKING"}, "Kill switch engaged: BLOCKING");
-$("btnRelease").onclick = () => act("/api/firewall", {mode:"NORMAL"}, "Firewall released: NORMAL");
-$("btnLock").onclick = () => act("/api/firewall", {mode:"LOCKDOWN"}, "Emergency LOCKDOWN");
-$("btnRecover").onclick = () => act("/api/recover", {code:$("recCode").value.trim()}, "Recovered: NORMAL").then((r) => { if (r) $("recCode").value = ""; });
-$("recCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("btnRecover").click(); });
-$("btnThr").onclick = () => act("/api/threshold", {threshold:Number($("thrInput").value)}, "Threshold updated");
-$("autoLock").onchange = (e) => act("/api/auto-lockdown", {enabled:e.target.checked}, e.target.checked ? "Auto-lockdown on" : "Auto-lockdown off");
-$("stBase").onclick = () => act("/api/stream/step", {stream:"baseline"}, (d) => `baseline: ${d.event} -> ${d.decision.outcome}`);
-$("stInc").onclick = () => act("/api/stream/step", {stream:"incident"}, (d) => `incident: ${d.event} -> ${d.decision.message_type} ${d.decision.outcome}`);
-$("stReset").onclick = () => act("/api/stream/reset", {}, "Streams rewound, score reset to 0");
-$("evBtn").onclick = () => act("/api/event", {type:$("evSel").value}, (d) => `${d.decision.message_type}: ${d.decision.outcome}`);
-$("scoreIn").oninput = (e) => $("scoreLbl").textContent = e.target.value;
-$("scoreBtn").onclick = () => act("/api/score", {score:Number($("scoreIn").value)}, (d) => `${d.decision.message_type}: ${d.decision.outcome}${d.decision.action ? " -> " + d.decision.action.code : ""}`);
-$("alertBtn").onclick = () => act("/api/alert", {}, (d) => `alert: ${d.decision.outcome} ${d.decision.code}${d.decision.action ? " -> " + (d.decision.action.email ? "email simulated" : d.decision.action.code) : ""}`);
-$("seqBtn").onclick = () => act("/api/attack-suite", {}, "Attack sequence started");
-$("stopBtn").onclick = () => act("/api/attack/stop", {}, "Attacker stopped");
-$("verifyBtn").onclick = () => act("/api/audit/verify", {}, (d) => d.verify.ok ? `Audit chain OK: ${d.verify.checked} entries verified` : `TAMPERING DETECTED at entry #${d.verify.broken_at}: ${d.verify.why}`);
-$("tamperBtn").onclick = () => act("/api/audit/tamper", {}, (d) => `Intruder edited entry #${d.tampered_seq}. Now press Verify chain.`);
-$("profStrict").onclick = () => act("/api/profile", {profile:"strict"}, "Strict profile: enforcement on");
-$("profBase").onclick = () => act("/api/profile", {profile:"baseline"}, "BASELINE profile: checks disabled for comparison");
-
-refresh();
-setInterval(() => { if (!busy && !document.hidden) refresh(); }, 1000);
+/* ---------------------------------------------------------------- wiring */
+$("modeTask").onclick = () => { mode = "task"; render(); };
+$("modeEvent").onclick = () => { mode = "event"; render(); };
+$("scenario").onchange = scenarioChanged;
+$("startBtn").onclick = async () => { showReplay = false; await post("/api/tasks/start", {scenario: $("scenario").value, goal: $("goal").value}); };
+$("runBtn").onclick = () => S.task && post(`/api/tasks/${S.task.task_id}/agent/run`, {});
+$("injectBtn").onclick = async () => { if (S.task && await post(`/api/tasks/${S.task.task_id}/inject`, {instruction: $("inject").value})) $("inject").value = ""; };
+$("replayBtn").onclick = async () => {
+  const body = {scenario: S.task ? S.task.scenario : $("scenario").value};
+  const inj = S.task && S.task.injected.length ? S.task.injected.join(" ") : $("inject").value.trim();
+  if (inj) body.instruction = inj.slice(0, 300);
+  if (await post("/api/replay", body)) { showReplay = true; render(); }
+};
+$("replayClose").onclick = () => { showReplay = false; render(); };
+document.querySelectorAll("[data-stream]").forEach(b => b.onclick = () => post("/api/stream/step", {stream: b.dataset.stream}));
+$("streamReset").onclick = () => post("/api/stream/reset", {});
+$("scoreBtn").onclick = () => post("/api/score", {score: Number($("scoreIn").value)});
+$("alertBtn").onclick = () => post("/api/alert", {});
+$("thrBtn").onclick = () => post("/api/threshold", {threshold: Number($("thrIn").value)});
+$("fwBlock").onclick = () => post("/api/firewall", {mode: "BLOCKING"});
+$("fwRelease").onclick = () => post("/api/firewall", {mode: "NORMAL"});
+$("fwLock").onclick = () => post("/api/firewall", {mode: "LOCKDOWN"});
+$("recoverBtn").onclick = async () => { if (await post("/api/recover", {code: $("code").value})) $("code").value = ""; };
+$("resetBtn").onclick = async () => { seen.clear(); open.clear(); showReplay = false; auditResult = null; await post("/api/reset", {}); };
+$("suiteBtn").onclick = () => post("/api/attack-suite", {});
+$("stopBtn").onclick = () => post("/api/attack/stop", {});
+$("profStrict").onclick = () => post("/api/profile", {profile: "strict"});
+$("profBase").onclick = () => post("/api/profile", {profile: "baseline"});
+$("autoBtn").onclick = () => post("/api/auto-lockdown", {enabled: !S.pressure.auto_lockdown});
+$("verifyBtn").onclick = async () => { const r = await post("/api/audit/verify", {}); if (r) { auditResult = r.verify; render(); } };
+$("tamperBtn").onclick = async () => { if (await post("/api/audit/tamper", {})) { auditResult = null; toast("One old decision record was edited without the audit key. Verify the chain to locate it."); } };
+refresh(); setInterval(refresh, 1500);
 </script>
 </body>
 </html>

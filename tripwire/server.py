@@ -285,6 +285,8 @@ def make_handler(session: Session, quiet: bool = False):
                     self.respond(exc.status, {"error": str(exc)})
                 except ValueError as exc:
                     self.respond(404, {"error": str(exc)})
+            elif path == "/favicon.ico":
+                self._send(204, b"", "image/x-icon")
             elif path in ("/", "/index.html"):
                 self._send(200, page_path.read_bytes(), "text/html; charset=utf-8")
             else:

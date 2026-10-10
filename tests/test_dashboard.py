@@ -116,6 +116,34 @@ class DashboardAPITests(unittest.TestCase):
             self.assertEqual(response.status, 200)
             self.assertIn(b"TripWire", response.read())
 
+    def test_dashboard_is_single_file_offline_and_never_builds_html_from_strings(self):
+        with urlopen(self.base + "/") as response:
+            page = response.read().decode("utf-8")
+            csp = response.headers["Content-Security-Policy"]
+        self.assertIn("default-src 'self'", csp)
+        # offline: no external scripts, styles, fonts or images
+        for needle in ("http://", "https://", "//cdn", "@import", "<link", "url("):
+            self.assertNotIn(needle, page, needle)
+        # server strings are only ever inserted as text nodes
+        for sink in ("innerHTML", "outerHTML", "insertAdjacentHTML", "document.write", "eval("):
+            self.assertNotIn(sink, page, sink)
+        # both modes, the deck footer and the main panels are present
+        for needle in ("Invoice task", "Event stream", "CONSTRAIN → ENFORCE → PROVE", "Evidence ledger",
+                       "Policy manifest", "Blast radius", "Channel attacks · Agent 3", "Replay: baseline vs protected"):
+            self.assertIn(needle, page, needle)
+        with urlopen(self.base + "/favicon.ico") as response:
+            self.assertEqual(response.status, 204)
+
+    def test_snapshot_feeds_both_modes(self):
+        _, state = self.request("/api/state")
+        for key in ("doc_scenarios", "task", "tasks", "approvals_pending", "replay", "contexts", "tool_executions",
+                    "egress", "streams", "events", "scenarios", "feed", "attack_log", "outbox", "metrics"):
+            self.assertIn(key, state, key)
+        self.assertEqual(len(state["contexts"]), 4)
+        self.assertEqual([a["role"] for a in (state["agents"]["monitor"], state["agents"]["validator"],
+                                              state["agents"]["adversary"])],
+                         ["Intake Agent", "Policy Validator", "Red Team"])
+
 
 if __name__ == "__main__":
     unittest.main()
