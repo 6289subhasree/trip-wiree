@@ -266,7 +266,7 @@ def make_handler(session: Session, quiet: bool = False, landing_dir: Optional[Pa
                 self.send_header("X-Frame-Options", "DENY")
                 self.send_header("Content-Security-Policy",
                                  "default-src 'self'; style-src 'self' 'unsafe-inline'; "
-                                 "script-src 'self' 'unsafe-inline'; frame-ancestors 'none'")
+                                 "script-src 'self' 'unsafe-inline'; media-src 'self' https://d8j0ntlcm91z4.cloudfront.net; frame-ancestors 'none'")
                 self.end_headers()
                 self.wfile.write(body)
             except (BrokenPipeError, ConnectionResetError):
@@ -362,7 +362,7 @@ def make_handler(session: Session, quiet: bool = False, landing_dir: Optional[Pa
     return Handler
 
 
-def run_server(session: Session, host: str = "127.0.0.1", port: int = 8765, open_browser: bool = False,
+def run_server(session: Session, host: str = "127.0.0.1", port: int = 3000, open_browser: bool = False,
                quiet: bool = True) -> None:
     server = ThreadingHTTPServer((host, port), make_handler(session, quiet=quiet))
     server.daemon_threads = True
