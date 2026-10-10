@@ -5,7 +5,7 @@ Follows PRD section 15, with the three agents named at each step.
 ## Before judges arrive (2 min)
 
 ```powershell
-python -m unittest discover -t . -s tests      # expect: OK (213 tests)
+python -m unittest discover -t . -s tests      # expect: OK (226 tests)
 $env:TRIPWIRE_RECOVERY_CODE = "TW-JUDGE-42"
 python -m tripwire serve --open
 ```

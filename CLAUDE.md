@@ -34,6 +34,7 @@ Set `$env:TRIPWIRE_RECOVERY_CODE="TW-JUDGE-42"` for a predictable lockdown recov
 - `tripwire/agents.py`, `risk.py`, `attacks.py`: agents, risk model, adversary scenarios
 - `tripwire/notifications.py`: mock email; `audit.py`: HMAC-chained audit log
 - `tripwire/session.py`: wiring, metrics, attack runner; `server.py`: stdlib HTTP API; `dashboard.html`: UI
+- `vantage/`: landing page source (Next.js static export). `vantage/out/` is the committed build that `server.py` serves at `/`; the runtime still needs only Python. After editing it: `cd vantage; npm run build`, then commit `out/`. The old page stays at `/classic`
 - `tests/`: unittest suite (`tests/helpers.py` has `make_session`, `FakeClock`)
 - `docs/`: DEMO.md, DECK_NOTES.md, adr/, reference/ (PRD, deck), screenshots/, claude-code/ (build prompts)
 
