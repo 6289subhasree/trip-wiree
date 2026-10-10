@@ -163,25 +163,25 @@ The TripWire architecture physically segregates the untrusted reasoning loop fro
 \draw[arrow] (doc) -- node[right] {Ingests} (a1);
 
 % MCP Server Flow (Horizontal)
-\node[mcp] (proto) [right=2.2cm of a1] {Protocol \\ Validation};
-\node[mcp] (cap) [right=1.2cm of proto] {Capability \\ Enforcement};
-\node[mcp] (pol) [right=1.2cm of cap] {Policy \\ Decision};
-\node[mcp] (audit) [below=1.6cm of proto] {Immutable \\ Audit Logger};
-\node[mcp] (firewall) [below=1.6cm of pol] {Firewall \& \\ Risk Engine};
+\node[mcp] (proto) [right=2.8cm of a1] {Protocol \\ Validation};
+\node[mcp] (cap) [right=2.2cm of proto] {Capability \\ Enforcement};
+\node[mcp] (pol) [right=2.2cm of cap] {Policy \\ Decision};
+\node[mcp] (audit) [below=1.8cm of cap] {Immutable \\ Audit Logger};
+\node[mcp] (firewall) [below=1.8cm of pol] {Firewall \& \\ Risk Engine};
 
 \draw[arrow] (a1) -- node[above] {Action Proposal} (proto);
 \draw[arrow] (proto) -- node[above] {Valid} (cap);
 \draw[arrow] (cap) -- node[above] {Checks Pass} (pol);
 
 % Rejects to Audit/Firewall
-\draw[danger] (proto) -- node[left] {Reject} (audit);
-\draw[danger] (cap) |- node[near end, above] {Reject} (audit);
+\draw[danger] (proto) |- node[near start, left] {Reject} (audit.west);
+\draw[danger] (cap) -- node[right] {Reject} (audit);
 \draw[danger] (pol) -- node[right] {BLOCK} (firewall);
-\draw[arrow] (firewall) -- node[above] {Log Event} (audit);
+\draw[arrow] (firewall) -- node[below] {Log Event} (audit);
 
 % Safe Execution Zone
-\node[tool] (action) [right=2.2cm of pol] {Protected \\ Actions};
-\node[agent] (a2) [above=2cm of action] {Agent 2 \\ (Verifier)};
+\node[tool] (action) [right=2.4cm of pol] {Protected \\ Actions};
+\node[agent] (a2) [above=2.4cm of action] {Agent 2 \\ (Verifier)};
 
 \draw[safe] (pol) -- node[above] {ALLOW} (action);
 \draw[safe] (pol) |- node[above, near end] {Verified Context} (a2);
