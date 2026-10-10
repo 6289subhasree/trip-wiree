@@ -81,11 +81,11 @@ The rapid deployment of Large Language Models (LLMs) as autonomous agents marks 
 
 Traditional safety mechanisms attempt to solve this by explicitly instructing the model to ignore malicious commands or by introducing secondary LLMs as safety classifiers. These inductive alignment methodologies are structurally asymmetrical. Defenders must anticipate and patch the entire infinite distribution of adversarial linguistic poly-encodings, while an attacker only needs to discover a single evasion technique. Because predicting the behavioral boundary of a universal Turing-complete language model is mathematically undecidable \cite{rice1953}, relying on the agent to self-police its execution is a fundamentally flawed security posture.
 
-This paper addresses the confused-deputy problem: an agent possesses legitimate system capabilities but can be tricked into exercising them for unauthorized purposes. We propose \textbf{TripWire}, a cryptographic runtime enforcement gateway that completely decouples semantic reasoning from kinetic authorization. The core principle of TripWire is unambiguous: \textbf{The agent proposes an action; the enforcement gateway determines whether that action is authorized.}
+This paper addresses the confused-deputy problem \cite{hardy1988,levy1984}: an agent possesses legitimate system capabilities but can be tricked into exercising them for unauthorized purposes. We propose \textbf{TripWire}, a cryptographic runtime enforcement gateway that completely decouples semantic reasoning from kinetic authorization. The core principle of TripWire is unambiguous: \textbf{The agent proposes an action; the enforcement gateway determines whether that action is authorized.}
 
 Our primary research contributions, as implemented and verified in the TripWire architecture, are:
 \begin{enumerate}
-    \item \textbf{Cryptographic Message Integrity:} A localized HMAC-SHA256 protocol enforcing message authenticity, freshness, and anti-replay metrics across all agent communications.
+    \item \textbf{Cryptographic Message Integrity:} A localized HMAC-SHA256 protocol \cite{rfc2104} enforcing message authenticity, freshness, and anti-replay metrics across all agent communications.
     \item \textbf{Provenance-Aware Authorization:} A capability enforcement engine that tracks the origin of task intent, rejecting instructions seeded from untrusted document zones.
     \item \textbf{Deterministic Default-Deny Policy:} A unified decision matrix that restricts data scopes and network destinations without invoking LLM-based heuristics.
     \item \textbf{Runtime Containment:} An adaptive firewall state machine that transitions to \texttt{BLOCKING} and \texttt{LOCKDOWN} modes based on quantitative risk pressures.
@@ -94,7 +94,7 @@ Our primary research contributions, as implemented and verified in the TripWire 
 \section{Threat Model and Security Objectives}
 
 \subsection{Adversary Capabilities and Trusted Computing Base}
-We adopt an extended Dolev-Yao adversary model \cite{dolev1983}. The adversary can inject malicious instructions into untrusted documents, intercept and attempt to replay inter-agent communications, tamper with message envelopes, forge identities, and completely hijack the cognitive reasoning of Agent 1 (the Monitor) via prompt injection. 
+We adopt an extended Dolev-Yao adversary model \cite{dolev1983} aligned with the MITRE ATLAS \cite{mitre_atlas} and OWASP \cite{owasp_llm} threat landscapes for autonomous systems. The adversary can inject malicious instructions into untrusted documents, intercept and attempt to replay inter-agent communications, tamper with message envelopes, forge identities, and completely hijack the cognitive reasoning of Agent 1 (the Monitor) via prompt injection.
 
 The \textbf{Trusted Computing Base (TCB)} consists strictly of the TripWire Message Gateway, Firewall State Machine, Audit Logger, Cryptographic Key Manager, and the underlying OS/Network substrate. The AI Models (LLMs), prompt templates, document parsers, and external tool endpoints reside explicitly outside the TCB.
 
@@ -321,7 +321,7 @@ First, the gateway can only enforce policies on tools that explicitly route thro
 Future work includes integrating hardware-backed Trusted Execution Environments (TEEs) for secure key storage, extending the sequence validation to distributed mesh consistency models, and executing independent latency benchmarks under production API load.
 
 \section{Conclusion}
-As the industry pivots toward autonomous agents, relying on Large Language Models to self-police their execution boundaries is fundamentally insufficient. TripWire demonstrates that secure agentic operations require an independently enforced boundary between cognitive reasoning and kinetic execution. By implementing cryptographic message validation, provenance-aware capability enforcement, and dynamic runtime containment, TripWire successfully neutralizes semantic prompt injections and insider threats on Day 0, providing a rigorous, verifiable foundation for zero-trust AI architectures.
+As the industry pivots toward autonomous agents, relying on Large Language Models to self-police their execution boundaries is fundamentally insufficient \cite{nist_airmf}. TripWire demonstrates that secure agentic operations require an independently enforced boundary between cognitive reasoning and kinetic execution. By implementing cryptographic message validation, provenance-aware capability enforcement, and dynamic runtime containment, TripWire successfully neutralizes semantic prompt injections and insider threats on Day 0, providing a rigorous, verifiable foundation for zero-trust AI architectures.
 
 \bibliographystyle{plain}
 \bibliography{references}
