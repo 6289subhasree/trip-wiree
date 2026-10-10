@@ -1,0 +1,309 @@
+.viewport {
+  position: fixed;
+  inset: 0;
+  background: #050b14;
+  color: #fff;
+  font-family: system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+}
+
+.container {
+  display: flex;
+  width: 100%;
+  height: calc(100vh - 80px); /* Leave room for chat console */
+}
+
+/* Base styles for panes */
+.pane {
+  flex: 1;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(255,255,255,0.05);
+  position: relative;
+}
+
+.attackerPane {
+  background: linear-gradient(180deg, rgba(20, 5, 5, 0.4), transparent);
+}
+
+.defenderPane {
+  background: linear-gradient(180deg, rgba(5, 20, 20, 0.4), transparent);
+}
+
+.paneTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+.attackerPane .paneTitle {
+  color: #f87171;
+}
+
+.defenderPane .paneTitle {
+  color: #34d399;
+}
+
+/* Controls */
+.controlsRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background: rgba(255,255,255,0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.switchContainer {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.switchLabel {
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.firewallSwitch {
+  width: 54px;
+  height: 28px;
+  background: #374151;
+  border-radius: 999px;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.firewallSwitch[data-state="on"] {
+  background: #059669;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+}
+
+.firewallSwitch[data-state="off"] {
+  background: #dc2626;
+  box-shadow: 0 0 15px rgba(220, 38, 38, 0.4);
+}
+
+.switchThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 24px;
+  height: 24px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.firewallSwitch[data-state="on"] .switchThumb {
+  transform: translateX(26px);
+}
+
+.attackButton {
+  background: #dc2626;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 0 10px rgba(220, 38, 38, 0.2);
+}
+
+.attackButton:hover {
+  background: #ef4444;
+  box-shadow: 0 0 15px rgba(220, 38, 38, 0.4);
+}
+
+.attackButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Terminal & Ledger */
+.terminal {
+  flex: 1;
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 1rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85rem;
+  overflow-y: auto;
+  box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.logEntry {
+  padding: 0.5rem;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.3);
+  animation: logEnter 0.3s ease-out forwards;
+}
+
+@keyframes logEnter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.logTime {
+  color: #64748b;
+  margin-right: 0.75rem;
+}
+
+.logDanger { color: #f87171; }
+.logSuccess { color: #34d399; }
+.logInfo { color: #94a3b8; }
+
+/* Chat Console */
+.chatConsole {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  align-items: center;
+  padding: 0 2rem;
+  gap: 1rem;
+}
+
+.chatInputWrapper {
+  flex: 1;
+  position: relative;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.chatInput {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 24px;
+  padding: 12px 20px;
+  color: white;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.chatInput:focus {
+  border-color: rgba(255,255,255,0.3);
+}
+
+.sendButton {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: white;
+  color: black;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.sendButton:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Topology Diagram */
+.topology {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  background: rgba(255,255,255,0.02);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.node {
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(255,255,255,0.1);
+  font-weight: 500;
+  text-align: center;
+  position: relative;
+  transition: all 0.3s;
+}
+
+.node.active {
+  background: rgba(52, 211, 153, 0.2);
+  border-color: #34d399;
+  box-shadow: 0 0 20px rgba(52, 211, 153, 0.3);
+  animation: pulse 1.5s infinite;
+}
+
+.node.threat {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+  animation: pulseThreat 1.5s infinite;
+}
+
+.edge {
+  height: 2px;
+  width: 40px;
+  background: rgba(255,255,255,0.2);
+  position: relative;
+}
+
+.edge::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: -4px;
+  border-left: 6px solid rgba(255,255,255,0.2);
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+}
+
+.edge.active {
+  background: #34d399;
+}
+.edge.active::after {
+  border-left-color: #34d399;
+}
+
+.edge.threat {
+  background: #ef4444;
+}
+.edge.threat::after {
+  border-left-color: #ef4444;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.4); }
+  70% { box-shadow: 0 0 0 15px rgba(52, 211, 153, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+}
+
+@keyframes pulseThreat {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}

@@ -218,6 +218,15 @@ def build_routes(s: Session) -> Dict[str, Callable[[Dict[str, Any], str], Any]]:
     def tamper(data, _):
         return s.tamper_audit()
 
+    def demo_execute(data, _):
+        from .demo_sim import DemoPipeline
+        _only(data, "firewall_active", "human_prompt", "attack_active")
+        return DemoPipeline.execute(
+            bool(data.get("firewall_active", True)),
+            str(data.get("human_prompt", "")),
+            bool(data.get("attack_active", False))
+        )
+
     return {
         "/api/tasks/start": task_start,
         "/api/tasks/select": select,
@@ -238,6 +247,7 @@ def build_routes(s: Session) -> Dict[str, Callable[[Dict[str, Any], str], Any]]:
         "/api/attack/stop": lambda d, p: s.stop_attacks() or {},
         "/api/audit/verify": lambda d, p: {"verify": s.verify_audit()},
         "/api/audit/tamper": tamper,
+        "/api/demo/execute": demo_execute,
         "/api/reset": lambda d, p: s.reset() or {},
         "/api/attack/": attack,  # prefix route
     }
