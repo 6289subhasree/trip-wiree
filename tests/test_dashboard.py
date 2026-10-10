@@ -135,7 +135,7 @@ class DashboardAPITests(unittest.TestCase):
             self.assertEqual(response.status, 204)
 
     def test_website_pages_and_assets_are_served_offline_and_text_only(self):
-        pages = {"/": "Your Gateway Between", "/demo": "Hand a hijacked agent a poisoned invoice",
+        pages = {"/classic": "Your Gateway Between", "/demo": "Hand a hijacked agent a poisoned invoice",
                  "/arena": "Three agents. One firewall.", "/evidence": "Every decision, on the record."}
         bodies = []
         for path, needle in pages.items():

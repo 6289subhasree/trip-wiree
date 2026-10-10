@@ -7,6 +7,10 @@ Local hardening: binds to 127.0.0.1 by default, POSTs must carry ``X-TripWire-Cl
 custom header forces a CORS pre-flight, which this server never approves) and any ``Origin``
 header must match the ``Host`` header. The recovery code is never returned by any endpoint.
 
+Pages: "/" is the built landing page (vantage/out, with its /_next/ and /assets/ files) or, when
+that folder is absent, the classic page, which is always at /classic. /demo, /arena, /evidence and
+/console are served from this package.
+
 Task mode (PRD 12) adds:
 
     GET  /api/scenarios                     document scenarios and channel attacks
@@ -43,10 +47,16 @@ MAX_BODY = 4096
 
 # Multi-page web front end (tripwire/web). The original single-page console stays at /console.
 WEB_DIR = Path(__file__).with_name("web")
-PAGES = {"/": "index.html", "/index.html": "index.html", "/demo": "demo.html", "/arena": "arena.html",
-         "/evidence": "evidence.html"}
+PAGES = {"/classic": "index.html", "/demo": "demo.html", "/arena": "arena.html", "/evidence": "evidence.html"}
 STATIC = {"/static/app.css": ("app.css", "text/css; charset=utf-8"),
           "/static/app.js": ("app.js", "text/javascript; charset=utf-8")}
+# Landing page: the committed Next.js static export in vantage/out, served on this origin at "/".
+# When that folder is absent (no build, or an installed package) "/" serves the classic page instead.
+LANDING_DIR = Path(__file__).resolve().parent.parent / "vantage" / "out"
+LANDING_ASSET = re.compile(r"^/(?:_next|assets)/[A-Za-z0-9._~/-]+$")
+LANDING_TYPES = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
+                 ".txt": "text/plain; charset=utf-8", ".json": "application/json; charset=utf-8",
+                 ".svg": "image/svg+xml", ".png": "image/png", ".woff2": "font/woff2"}
 TASK_PATH = re.compile(r"^/api/tasks/([A-Za-z0-9_-]{1,64})(/document|/timeline|/report|/agent/run|/approval|/inject)?$")
 
 
@@ -86,6 +96,19 @@ def _opt_text(data: Dict[str, Any], name: str, limit: int) -> Optional[str]:
     if not isinstance(value, str) or not value.strip() or len(value) > limit:
         raise ValueError(f"{name} must be 1-{limit} characters of text")
     return value
+
+
+def landing_asset(root: Path, path: str) -> Optional[Path]:
+    """A build asset of the landing page, or None. Known prefixes and file types only, never outside ``root``."""
+    if not LANDING_ASSET.match(path) or ".." in path.split("/"):
+        return None
+    if Path(path).suffix not in LANDING_TYPES:
+        return None
+    try:
+        base, target = root.resolve(), (root / path.lstrip("/")).resolve()
+    except (OSError, ValueError):
+        return None
+    return target if base in target.parents and target.is_file() else None
 
 
 def scenario_catalogue() -> Dict[str, Any]:
@@ -220,8 +243,9 @@ def build_routes(s: Session) -> Dict[str, Callable[[Dict[str, Any], str], Any]]:
     }
 
 
-def make_handler(session: Session, quiet: bool = False):
+def make_handler(session: Session, quiet: bool = False, landing_dir: Optional[Path] = None):
     routes = build_routes(session)
+    landing_dir = LANDING_DIR if landing_dir is None else Path(landing_dir)
     page_path = Path(__file__).with_name("dashboard.html")
 
     class Handler(BaseHTTPRequestHandler):
@@ -294,6 +318,10 @@ def make_handler(session: Session, quiet: bool = False):
                     self.respond(404, {"error": str(exc)})
             elif path == "/favicon.ico":
                 self._send(204, b"", "image/x-icon")
+            elif path in ("/", "/index.html"):
+                built = landing_dir / "index.html"
+                page = built if built.is_file() else WEB_DIR / "index.html"
+                self._send(200, page.read_bytes(), "text/html; charset=utf-8")
             elif path in PAGES:
                 self._send(200, (WEB_DIR / PAGES[path]).read_bytes(), "text/html; charset=utf-8")
             elif path == "/console":
@@ -301,6 +329,8 @@ def make_handler(session: Session, quiet: bool = False):
             elif path in STATIC:
                 name, ctype = STATIC[path]
                 self._send(200, (WEB_DIR / name).read_bytes(), ctype)
+            elif (asset := landing_asset(landing_dir, path)) is not None:
+                self._send(200, asset.read_bytes(), LANDING_TYPES[asset.suffix])
             else:
                 self.respond(404, {"error": "not found"})
 
@@ -339,6 +369,8 @@ def run_server(session: Session, host: str = "127.0.0.1", port: int = 8765, open
     url = f"http://{host}:{server.server_port}"
     print("=" * 64)
     print(f" TripWire security console : {url}")
+    built = (LANDING_DIR / "index.html").is_file()
+    print(f" Landing page              : {'vantage/out (built)' if built else 'classic (vantage/out not found)'}")
     print(f" Operator recovery code    : {session.recovery_code}   (never shown in the UI)")
     print(f" Simulated outbox          : {session.outbox.path}")
     print(f" Audit log (HMAC chain)    : {session.audit.path}")

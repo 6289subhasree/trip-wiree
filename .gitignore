@@ -7,5 +7,9 @@ venv/
 .pytest_cache/
 .coverage
 
+# landing page (Next.js): dependencies and build cache. vantage/out is committed on purpose.
+vantage/node_modules/
+vantage/.next/
+
 # hand-off bundles
 *.bundle

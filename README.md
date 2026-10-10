@@ -48,16 +48,32 @@ $env:TRIPWIRE_RECOVERY_CODE = "TW-JUDGE-42"       # optional: a memorable recove
 python -m tripwire serve --open                   # website at http://127.0.0.1:8765
 ```
 
-The website has four pages, all offline and wired to the live backend:
+The website has four pages, all offline and wired to the live backend. Python is all you need to run it:
 
 | Page | What it shows |
 |---|---|
-| `/` | Landing page with a live containment score computed from a real baseline-vs-protected run |
+| `/` | Landing page with a live containment score computed from a real baseline-vs-protected run (built from `vantage/`, see below) |
 | `/demo` | Invoice agent demo: pick an attack, assign the task, run Agent 1, approve or reject, compare without/with TripWire |
 | `/arena` | The three-agent event stream, firewall states, intrusion pressure and the 10 channel attacks |
 | `/evidence` | HMAC audit chain (verify / simulate tampering), task reports, outbox and the meaning of every refusal code |
 
-The original single-page operator console is still available at `/console`.
+The original single-page operator console is still available at `/console`, and the previous landing page at `/classic`.
+
+### Landing page (`vantage/`)
+
+The page at `/` is a Next.js static export. Its build output, `vantage/out/`, is committed, so `python -m tripwire serve` shows it on a machine with no Node installed. The Python server serves that folder on the same origin (`/`, `/_next/…`, `/assets/…`) under the same Content-Security-Policy as every other page. It loads no fonts, scripts, images or video from the network.
+
+Node is only needed to change the page (Node 20.9 or newer):
+
+```powershell
+cd vantage
+npm install
+npm run build        # type-checks and rewrites vantage/out
+cd ..
+python -m unittest discover -t . -s tests      # tests/test_landing.py checks the new build
+```
+
+Commit the updated `vantage/out/` with the source change. If `vantage/out/` is missing, `/` falls back to the classic page (`tripwire/web/index.html`), so the Python-only path always works.
 
 Other commands:
 
@@ -186,8 +202,9 @@ tripwire/
   firewall.py       NORMAL / BLOCKING / LOCKDOWN         risk.py     risk model and event streams
   notifications.py  mock outbox and egress log           audit.py    HMAC-chained audit log
   session.py        wiring, task flow, replay, metrics   server.py   stdlib HTTP API
-  dashboard.html    single-file offline console
-tests/              213 tests, including PRD acceptance criteria 1-8 (tests/test_acceptance.py)
+  dashboard.html    single-file offline console  web/        /classic, /demo, /arena, /evidence
+vantage/            landing page source (Next.js); vantage/out is the committed build served at /
+tests/              226 tests, including PRD acceptance criteria 1-8 (tests/test_acceptance.py)
 docs/               DEMO.md, DECK_NOTES.md, adr/, reference/ (PRD and deck), screenshots/
 ```
 
