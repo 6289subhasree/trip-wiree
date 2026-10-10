@@ -131,6 +131,7 @@ The TripWire architecture physically segregates the untrusted reasoning loop fro
 
 \begin{figure*}[h]
 \centering
+\resizebox{\textwidth}{!}{%
 \begin{tikzpicture}[
     node distance=1.8cm and 1cm,
     every node/.style={font=\sffamily\small},
@@ -170,7 +171,8 @@ The TripWire architecture physically segregates the untrusted reasoning loop fro
 \node[anchor=north east, font=\sffamily\bfseries\color{tripwiregray}] at (tcb.north east) {Trusted Computing Base (TCB)};
 \end{scope}
 
-\end{tikzpicture}
+\end{tikzpicture}%
+}
 \caption{TripWire Request Lifecycle and Architectural Boundaries.}
 \label{fig:architecture}
 \end{figure*}
