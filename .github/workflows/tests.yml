@@ -23,3 +23,5 @@ jobs:
         run: python -m tripwire demo
       - name: Attack matrix smoke test
         run: python -m tripwire attack-demo
+      - name: Invoice (PRD) demo smoke test
+        run: python -m tripwire invoice-demo

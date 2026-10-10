@@ -1,7 +1,8 @@
 """TripWire command line.
 
     python -m tripwire serve [--port 8765] [--open]   interactive security console
-    python -m tripwire demo                           scripted end-to-end story (terminal)
+    python -m tripwire demo                           scripted end-to-end story (terminal), event mode
+    python -m tripwire invoice-demo                   PRD demo script: invoice task, replay vs protected
     python -m tripwire attack-demo                    every attack scenario, strict vs baseline
     python -m tripwire --demo / --attack-demo         legacy shortcuts
 """
@@ -68,6 +69,72 @@ def run_demo(args: argparse.Namespace) -> int:
     return 0
 
 
+def _tool_line(row) -> str:
+    stamp = {"ALLOW": "ALLOW   ", "BLOCK": "BLOCK   ", "APPROVAL": "APPROVAL"}.get(row["decision"], row["decision"])
+    ran = "executed" if row.get("executed") else "not executed"
+    return f"   [{stamp}] {row['action']:<27} {row['code']:<22} {ran:<13} source={row['source']['context']}"
+
+
+def _report_lines(report) -> str:
+    return (f"   severity {report['severity'].upper()} (attempted {report['attempted_severity'].upper()}), "
+            f"{report['containment']}\n"
+            f"   sensitive records: {report['sensitive_records_exposed']} exposed, "
+            f"{report['sensitive_records_protected']} protected | canaries: {report['canaries_exposed']} exposed, "
+            f"{report['canaries_protected']} protected\n"
+            f"   external destinations reached: {', '.join(report['external_destinations_reached']) or 'none'}")
+
+
+def run_invoice_demo(args: argparse.Namespace) -> int:
+    """The PRD section 15 script, in the terminal, with the three agents named."""
+    s = Session(_threshold(), attack_delay_s=0, recovery_code=os.getenv("TRIPWIRE_RECOVERY_CODE"))
+    scenario = "footer_injection"
+    print("TRIPWIRE :: invoice demo (PRD script) - constrain -> enforce -> prove")
+    print("Agent 1 intake agent | Agent 2 policy validator | Agent 3 red team | all traffic through the gateway\n")
+    print("1) Scenario: Invoice Footer Injection (Agent 3 planted a sentence in the invoice footer)")
+    task = s.start_task(scenario)
+    view = s.task_view(task.task_id)
+    print(f"2) Task assigned: \"{view['goal']}\"  ->  task {view['task_id']}")
+    m = view["manifest"]
+    print(f"3) Signed manifest {view['manifest_hash'][:16]}...")
+    print(f"   allowed tools : {', '.join(m['allowed_tools'])}")
+    print(f"   forbidden     : {', '.join(m['forbidden_tools'])}")
+    print(f"   data scope    : {', '.join(m['allowed_data'])} | limit INR {m['payment_limit_inr']:,} | "
+          f"destinations: {', '.join(m['allowed_destinations'])}")
+    for span in view["documents"][0]["spans"]:
+        print(f"   untrusted instruction in the document: \"{span['text'][:90]}\"")
+    replay = s.replay(scenario)
+    print(f"\n4) Replay baseline ({replay['label'].lower()}; throwaway session, no policy checks):")
+    for row in replay["baseline"]["timeline"]:
+        if row["kind"] == "tool.decision":
+            print(_tool_line(row))
+    print("5) Baseline blast radius:")
+    print(_report_lines(replay["baseline"]["report"]))
+    print("\n6) Protected flow: Agent 1 reads the same document and proposes the same calls:")
+    decisions = s.run_agent(task.task_id)
+    view = s.task_view(task.task_id)
+    for row in view["timeline"]:
+        if row["kind"] == "tool.decision":
+            print(_tool_line(row))
+    blocked = next(d for d in decisions if d.tool["decision"] == "BLOCK")
+    print(f"7) Why the gateway blocked {blocked.tool['tool']}: " + ", ".join(v["code"] for v in blocked.tool["violations"]))
+    for v in blocked.tool["violations"]:
+        print(f"     {v['code']:<22} {v['reason'][:110]}")
+    alert = next((d.action for d in decisions if d.action is not None), None)
+    if alert is not None and alert.email:
+        print(f"   Agent 2: task risk crossed {s.threshold:g}; internal SOC email simulated to {', '.join(alert.email['to'])}")
+    draft = (view["result"]["drafts"] or [None])[-1]
+    if draft:
+        print(f"8) Legitimate result: payment draft {draft['draft_id']} for INR {draft['amount_inr']:,.0f} "
+              f"to {draft['vendor_name']} ({draft['status']})")
+    print("9) Evidence ledger and protected blast radius:")
+    print(_report_lines(view["report"]))
+    counts = s.registry.executions
+    print(f"   tool executions: export_customer_list={counts['export_customer_list']} "
+          f"upload_external_file={counts['upload_external_file']} | firewall {s.firewall.mode} | "
+          f"audit chain ok={s.verify_audit()['ok']}")
+    return 0
+
+
 def run_attack_demo(args: argparse.Namespace) -> int:
     print("TRIPWIRE :: attack matrix (same attacks, two gateway profiles)\n")
     from .attacks import SCENARIOS
@@ -96,6 +163,7 @@ def main(argv=None) -> int:
     demo = sub.add_parser("demo", help="scripted end-to-end demo in the terminal")
     demo.add_argument("--firewall-on", action="store_true", help="start with the kill switch engaged")
     sub.add_parser("attack-demo", help="run every attack against strict and baseline profiles")
+    sub.add_parser("invoice-demo", help="PRD demo script: invoice task, replay baseline vs protected")
     web = sub.add_parser("serve", help="launch the local security console")
     web.add_argument("--host", default="127.0.0.1", help="bind address (default 127.0.0.1)")
     web.add_argument("--port", type=int, default=int(os.getenv("TRIPWIRE_PORT", "8765")))
@@ -113,6 +181,8 @@ def main(argv=None) -> int:
         return 0
     if args.attack_demo or args.command == "attack-demo":
         return run_attack_demo(args)
+    if args.command == "invoice-demo":
+        return run_invoice_demo(args)
     if args.demo or args.command in (None, "demo"):
         return run_demo(args)
     parser.print_help()
