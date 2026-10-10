@@ -18,10 +18,14 @@ from . import firewall as fw
 from .agents import EventMonitor, Validator
 from .attacks import SCENARIO_INDEX, SCENARIOS, Adversary
 from .audit import AuditLog
+from .context import USER_TASK, Labelled
 from .firewall import Firewall, FirewallError
 from .gateway import ACCEPTED, BASELINE, BLOCKED, CODE_HELP, REJECTED, STRICT, Decision, Gateway
+from .manifest import INVOICE_POLICY, ManifestAuthority, PolicyTemplate
 from .notifications import MockEmailService
-from .protocol import ADVERSARY, EMAIL_ACTION, MONITOR, ROUTES, VALIDATOR, AgentKey, KeyRing, Signer
+from .protocol import (ADVERSARY, EMAIL_ACTION, MONITOR, ROUTES, TOOL_GATEWAY, VALIDATOR, AgentKey, KeyRing,
+                       Signer)
+from .tools_gateway import ALLOW, BLOCK, REQUIRE_APPROVAL, Task, ToolGateway, ToolRegistry
 from .risk import DEFAULT_THRESHOLD, STREAMS, WEIGHTS
 
 
@@ -59,6 +63,12 @@ class Session:
         self.monitor = EventMonitor(Signer(monitor_key, self.clock), lambda: self.threshold)
         self.validator = Validator(Signer(validator_key, self.clock), lambda: self.threshold)
         self.gateway.register_receiver(VALIDATOR, self.validator.handle)
+        # Task mode: the capability tool gateway sits behind the same envelope pipeline. Agent 2
+        # reviews proposals for it; Agent 1 can only sign requests.
+        self.registry = ToolRegistry()
+        self.tools = ToolGateway(ManifestAuthority(self.clock), self.registry, clock=self.clock, audit=self.audit)
+        self.gateway.attach_tools(self.tools, self.validator)
+        self._task_n = 0
         self.adversary = Adversary(adversary_key, self.clock)
         self.channel_tap: Deque[Dict[str, Any]] = deque(maxlen=50)
         self.feed: Deque[Dict[str, Any]] = deque(maxlen=80)
@@ -69,7 +79,8 @@ class Session:
         self.m: Dict[str, Any] = {k: 0 for k in (
             "messages", "accepted", "rejected", "blocked", "legit", "legit_accepted", "legit_rejected",
             "legit_blocked", "attack_attempts", "attack_detected", "attack_rejected", "attack_blocked",
-            "attack_passed", "unauthorized_emails", "emails_delivered", "email_denied", "validator_refused")}
+            "attack_passed", "unauthorized_emails", "emails_delivered", "email_denied", "validator_refused",
+            "tool_requests", "tool_allowed", "tool_blocked", "tool_pending", "tools_executed")}
         self._attack_latencies: List[float] = []
         self.audit.append("session.start", {"threshold": self.threshold, "firewall": mode, "profile": STRICT,
                                             "agents": self.keyring.agents(), "adversary": ADVERSARY,
@@ -123,6 +134,10 @@ class Session:
             m[{ACCEPTED: "accepted", REJECTED: "rejected", BLOCKED: "blocked"}[node.outcome]] += 1
             if node.code == "VALIDATOR_REFUSED":
                 m["validator_refused"] += 1
+            if node.tool is not None:
+                m["tool_requests"] += 1
+                m[{ALLOW: "tool_allowed", BLOCK: "tool_blocked", REQUIRE_APPROVAL: "tool_pending"}[node.tool["decision"]]] += 1
+                m["tools_executed"] += bool(node.tool["executed"])
             if node.email:
                 m["emails_delivered"] += 1
                 if origin.startswith("attack:"):
@@ -184,6 +199,39 @@ class Session:
     def send_alert(self) -> Decision:
         with self.lock:
             return self.legit(self.monitor.alert())
+
+    # ------------------------------------------------------------------ task mode
+    def open_task(self, goal: str, allowed_data: List[str], *, documents: Optional[Dict[str, str]] = None,
+                  template: PolicyTemplate = INVOICE_POLICY, ttl_s: float = 900.0, task_id: Optional[str] = None,
+                  scenario: Optional[str] = None) -> Task:
+        """The user assigns a task. Goal and data scope are user input, so they are labelled
+        ``user_task`` here; tools, limits and destinations come from the system policy template."""
+        with self.lock:
+            if not isinstance(goal, str) or not isinstance(allowed_data, list) \
+                    or not all(isinstance(r, str) for r in allowed_data):
+                raise ValueError("goal must be text and allowed_data a list of record ids")
+            if task_id is None:
+                self._task_n += 1
+                task_id = f"T-{self._task_n:04d}"
+            return self.tools.open_task(
+                task_id=task_id, goal=Labelled.of(goal, USER_TASK, task_id), template=template,
+                allowed_data=[Labelled.of(r, USER_TASK, task_id) for r in allowed_data],
+                documents=documents, ttl_s=ttl_s, scenario=scenario)
+
+    def tool_call(self, task_id: str, proposal: Dict[str, Any], *, manifest_hash: Optional[str] = None) -> Decision:
+        """Agent 1 proposes one tool call for a task; the gateway decides. Nothing else runs a tool."""
+        with self.lock:
+            task = self.tools.tasks.get(task_id)
+            presented = manifest_hash or (task.signed.hash if task else "0" * 64)
+            correlation = task.correlation_id if task else f"task-{str(task_id)[:40]}"
+            wire = self.monitor.request_tool(task_id, presented, correlation, proposal)
+            return self.submit(wire, f"task:{task_id}")
+
+    def complete_task(self, task_id: str, reason: str = "task completed") -> None:
+        with self.lock:
+            if task_id not in self.tools.tasks:
+                raise ValueError(f"unknown task '{str(task_id)[:40]}'")
+            self.tools.close_task(task_id, reason)
 
     # ------------------------------------------------------------------ operator controls
     def set_threshold(self, value: Any) -> None:

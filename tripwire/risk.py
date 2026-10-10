@@ -29,6 +29,15 @@ STREAMS: Dict[str, List[str]] = {
 }
 
 
+# Task mode: Agent 2 feeds the same decayed sum with one weight per gateway decision code, so a
+# task whose agent keeps reaching outside its manifest crosses the alert threshold.
+TOOL_WEIGHTS: Dict[str, float] = {
+    "TOOL_FORBIDDEN": 40, "TOOL_NOT_IN_MANIFEST": 30, "DATA_OUT_OF_SCOPE": 35, "DESTINATION_NOT_ALLOWED": 40,
+    "INTENT_MISMATCH": 40, "UNTRUSTED_AUTHORITY": 30, "CANARY_EGRESS": 45, "MANIFEST_TAMPERED": 45,
+    "CAPABILITY_EXPIRED": 10, "PAYLOAD_INVALID": 10, "PAYMENT_OVER_LIMIT": 15, "APPROVAL_REQUIRED": 25,
+}
+
+
 class RiskModel:
     def __init__(self) -> None:
         self.score = 0.0
@@ -39,6 +48,13 @@ class RiskModel:
             raise ValueError(f"unknown event type '{event}'")
         self.score = round(min(100.0, DECAY * self.score + WEIGHTS[event]), 2)
         self.recent = (self.recent + [event])[-6:]
+        return self.score
+
+    def ingest_weight(self, label: str, weight: float) -> float:
+        """Same recurrence as ``ingest`` for signals that are not stream events (task mode)."""
+        self.score = round(min(100.0, DECAY * self.score + max(0.0, float(weight))), 2)
+        if weight > 0:
+            self.recent = (self.recent + [label])[-6:]
         return self.score
 
     def override(self, score: float, label: str = "external_detector") -> float:

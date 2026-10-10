@@ -7,6 +7,9 @@ Agents never call each other directly. Every envelope - legitimate or hostile - 
     MAC (key id + HMAC) -> route policy -> freshness -> replay -> sequence -> payload schema ->
     rate limit -> deliver to receiver -> (for actions) action policy -> side effect
 
+A ``tool.request`` takes the same path and is then handed to ``ToolGateway`` (manifest, scope,
+destination, intent, evidence, thresholds, approval) before any tool can run.
+
 Nothing is delivered and no side effect happens unless every step passes. The whole pipeline,
 including the side effect, runs under ``Firewall.lock`` so firewall transitions cannot race it.
 """
@@ -24,8 +27,9 @@ from .notifications import BLOCKED as MAIL_BLOCKED
 from .notifications import REJECTED as MAIL_REJECTED
 from .notifications import MockEmailService
 from .protocol import (EMAIL_ACTION, EMAIL_BEARING_TYPES, EMAIL_SEND, MAC_ALGORITHM, MAX_ENVELOPE_BYTES,
-                       PROTOCOL_VERSION, ROUTES, KeyRing, ProtocolError, canonical_bytes, check_payload,
-                       check_structure, compute_mac, unsigned_view)
+                       PROTOCOL_VERSION, ROUTES, TOOL_GATEWAY, TOOL_REQUEST, KeyRing, ProtocolError,
+                       canonical_bytes, check_payload, check_structure, compute_mac, unsigned_view)
+from . import tools_gateway as tg
 import hmac
 
 ACCEPTED = "ACCEPTED"
@@ -41,6 +45,11 @@ SEVERITY: Dict[str, int] = {
     "UNKNOWN_SENDER": 30, "BAD_MAC": 40, "UNAUTHORIZED_ROUTE": 50, "STALE": 15,
     "FUTURE_TIMESTAMP": 15, "REPLAY": 35, "SEQUENCE_REGRESSION": 25, "PAYLOAD_INVALID": 30,
     "RATE_LIMITED": 5, "ACTION_DENIED": 20, "VALIDATOR_REFUSED": 10,
+    # Tool-gateway refusals. Deliberately low: an agent misled by one document produces a handful
+    # of these, which must not lock the system down by itself. Sustained abuse still adds up.
+    "TOOL_NOT_IN_MANIFEST": 4, "TOOL_FORBIDDEN": 5, "DATA_OUT_OF_SCOPE": 5, "DESTINATION_NOT_ALLOWED": 5,
+    "INTENT_MISMATCH": 5, "UNTRUSTED_AUTHORITY": 3, "PAYMENT_OVER_LIMIT": 2, "CAPABILITY_EXPIRED": 3,
+    "CANARY_EGRESS": 6, "MANIFEST_TAMPERED": 20,
 }
 
 CODE_HELP: Dict[str, str] = {
@@ -61,6 +70,18 @@ CODE_HELP: Dict[str, str] = {
     "VALIDATOR_REFUSED": "Receiver refused the request on semantic grounds",
     "FIREWALL_BLOCKING": "Firewall kill switch engaged",
     "FIREWALL_LOCKDOWN": "System is in LOCKDOWN",
+    "TOOL_NOT_IN_MANIFEST": "Tool is not granted by the task manifest",
+    "TOOL_FORBIDDEN": "Tool is explicitly forbidden for this task",
+    "DATA_OUT_OF_SCOPE": "Record is outside the task's data scope",
+    "DESTINATION_NOT_ALLOWED": "Destination is not on the task allowlist",
+    "INTENT_MISMATCH": "The action's effect or data class does not fit the task goal",
+    "UNTRUSTED_AUTHORITY": "Only untrusted content (document or tool output) was cited as the reason to act",
+    "PAYMENT_OVER_LIMIT": "Payment exceeds the task limit",
+    "APPROVAL_REQUIRED": "High-impact action is waiting for a human decision",
+    "CAPABILITY_EXPIRED": "The task capability has expired or does not exist",
+    "CANARY_EGRESS": "An egress payload carries a canary token",
+    "MANIFEST_TAMPERED": "Manifest signature or hash does not verify",
+    "BASELINE_UNCHECKED": "Counterfactual baseline: executed with no policy checks",
 }
 
 
@@ -83,6 +104,7 @@ class Decision:
     would_fail: Optional[str] = None
     handled: Optional[str] = None
     email: Optional[Dict[str, Any]] = None
+    tool: Optional[Dict[str, Any]] = None   # tool.request only: the capability gateway's verdict
     action: Optional["Decision"] = None
     origin: str = "unknown"  # simulation ground-truth label added by the session, never used to decide
 
@@ -117,7 +139,8 @@ class Gateway:
                  clock: Callable[[], float] = time.time, freshness_s: float = 30.0, max_skew_s: float = 5.0,
                  rate_capacity: int = 12, rate_refill_per_s: float = 2.0, email_limit: int = 5,
                  email_window_s: float = 60.0, lockdown_threshold: float = 200.0,
-                 pressure_half_life_s: float = 120.0, auto_lockdown: bool = True):
+                 pressure_half_life_s: float = 120.0, auto_lockdown: bool = True,
+                 task_rate_capacity: int = 24):
         self.keys, self.firewall, self.audit, self.outbox = keyring, firewall, audit, outbox
         self.clock = clock
         self.freshness_s, self.max_skew_s = freshness_s, max_skew_s
@@ -127,6 +150,9 @@ class Gateway:
         self.auto_lockdown = auto_lockdown
         self.profile = STRICT
         self.receivers: Dict[str, Handler] = {}
+        self.tools: Optional[tg.ToolGateway] = None   # capability tool gateway (attach_tools)
+        self.reviewer: Optional[tg.Reviewer] = None   # Agent 2 in its policy-validator role
+        self.task_rate_capacity = task_rate_capacity
         self.decisions: Deque[Decision] = deque(maxlen=300)
         self._seq = 0
         self._seen: Dict[str, float] = {}           # nonce / message id -> first seen time
@@ -140,6 +166,9 @@ class Gateway:
     # ------------------------------------------------------------------ config
     def register_receiver(self, receiver_id: str, handler: Handler) -> None:
         self.receivers[receiver_id] = handler
+
+    def attach_tools(self, tools: tg.ToolGateway, reviewer: Optional[tg.Reviewer]) -> None:
+        self.tools, self.reviewer = tools, reviewer
 
     def set_profile(self, profile: str, actor: str = "operator") -> None:
         if profile not in (STRICT, BASELINE):
@@ -241,12 +270,17 @@ class Gateway:
         check_payload(mtype, wire["payload"], strict=strict)
         bucket = None
         if strict:
-            bucket = self._buckets.get(sender) or _Bucket(self.rate_capacity, self.rate_refill, now)
+            # Tool requests draw on a budget per (sender, existing task), so one task cannot starve
+            # another and a document-driven burst stays bounded. Anything else is per sender.
+            bucket_key, capacity = sender, self.rate_capacity
+            if mtype == TOOL_REQUEST and self.tools is not None and wire["payload"]["task_id"] in self.tools.tasks:
+                bucket_key, capacity = f"{sender}|task:{wire['payload']['task_id']}", self.task_rate_capacity
+            bucket = self._buckets.get(bucket_key) or _Bucket(capacity, self.rate_refill, now)
             if bucket.available(now) < 1:
-                raise ProtocolError("RATE_LIMITED", f"{sender} exceeded {self.rate_capacity} msgs burst "
+                raise ProtocolError("RATE_LIMITED", f"{sender} exceeded {capacity} msgs burst "
                                                     f"/ {self.rate_refill:g} per s")
         if commit and strict:
-            self._buckets[sender] = bucket
+            self._buckets[bucket_key] = bucket
             bucket.take(now)
             self._seen[wire["nonce"]] = now
             self._seen["id:" + wire["message_id"]] = now
@@ -272,6 +306,9 @@ class Gateway:
         if receiver == EMAIL_ACTION:
             self._email_action(wire, d)
             return
+        if receiver == TOOL_GATEWAY and wire["message_type"] == TOOL_REQUEST:
+            self._tool_action(wire, d, depth)
+            return
         handler = self.receivers.get(receiver)
         if handler is None:
             d.outcome, d.code, d.reason = REJECTED, "UNAUTHORIZED_ROUTE", f"no receiver '{receiver[:40]}'"
@@ -282,6 +319,26 @@ class Gateway:
             d.code = "VALIDATOR_REFUSED"
             d.severity = SEVERITY["VALIDATOR_REFUSED"]
             self._add_pressure(d)
+        if outbound is not None and depth < 2:
+            d.action = self._process(outbound, depth + 1)
+
+    def _tool_action(self, wire: Dict[str, Any], d: Decision, depth: int) -> None:
+        """Hand an authenticated tool request to the capability gateway. No tool runs anywhere else."""
+        if self.tools is None:
+            self._reject(d, ProtocolError("UNAUTHORIZED_ROUTE", "no tool gateway is attached"))
+            return
+        verdict, outbound = self.tools.handle(wire, self.profile, self.reviewer)
+        d.tool = verdict.to_dict()
+        if verdict.decision == tg.BLOCK:
+            self._reject(d, ProtocolError(verdict.code, verdict.reason))
+            d.handled = f"blocked {verdict.tool[:40]}; tool not executed"
+        elif verdict.decision == tg.REQUIRE_APPROVAL:
+            d.code, d.reason = verdict.code, verdict.reason
+            d.handled = f"paused {verdict.tool} for human approval; tool not executed"
+        else:
+            d.handled = f"executed {verdict.tool}"
+            if verdict.counterfactual:
+                d.code, d.reason = verdict.code, verdict.reason
         if outbound is not None and depth < 2:
             d.action = self._process(outbound, depth + 1)
 
@@ -334,11 +391,18 @@ class Gateway:
             status = MAIL_BLOCKED if d.outcome == BLOCKED else MAIL_REJECTED
             self.outbox.deny(status, correlation_id=d.correlation_id, reason=d.reason, code=d.code,
                              message_type=d.message_type, sender_id=d.sender_id)
-        self.audit.append("gateway.decision", {
+        entry = {
             "decision": d.seq, "outcome": d.outcome, "code": d.code, "reason": d.reason[:200],
             "message_id": d.message_id, "correlation_id": d.correlation_id, "sender": d.sender_id,
             "receiver": d.receiver_id, "type": d.message_type, "firewall": d.firewall_mode,
-            "profile": d.profile, "would_fail": d.would_fail, "handled": d.handled})
+            "profile": d.profile, "would_fail": d.would_fail, "handled": d.handled}
+        if d.tool is not None:
+            entry["tool"] = {k: d.tool.get(k) for k in (
+                "task_id", "tool", "decision", "code", "triggers", "executed", "approval_id", "lineage_id",
+                "manifest_hash", "resources", "destinations", "risk", "counterfactual")}
+            entry["tool"]["codes"] = [v["code"] for v in d.tool.get("violations", [])]
+            entry["tool"]["evidence"] = [e.get("source") for e in d.tool.get("evidence", [])]
+        self.audit.append("gateway.decision", entry)
         self.decisions.append(d)
 
     @staticmethod

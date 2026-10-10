@@ -34,6 +34,7 @@ MONITOR = "agent-1-monitor"
 VALIDATOR = "agent-2-validator"
 ADVERSARY = "agent-3-adversary"
 EMAIL_ACTION = "action:email"
+TOOL_GATEWAY = "gateway:tools"
 
 # ---------------------------------------------------------------------------
 # Message types and the strict route table (default deny: anything not listed is refused)
@@ -41,11 +42,14 @@ EMAIL_ACTION = "action:email"
 TELEMETRY = "telemetry.report"
 ALERT = "alert.request"
 EMAIL_SEND = "action.email.send"
+TOOL_REQUEST = "tool.request"
 
 ROUTES: Dict[str, Dict[str, Any]] = {
     TELEMETRY: {"senders": {MONITOR}, "receiver": VALIDATOR},
     ALERT: {"senders": {MONITOR}, "receiver": VALIDATOR},
     EMAIL_SEND: {"senders": {VALIDATOR}, "receiver": EMAIL_ACTION},
+    # Agent 1 proposes a tool call with a justification; only the gateway can run a tool.
+    TOOL_REQUEST: {"senders": {MONITOR}, "receiver": TOOL_GATEWAY},
 }
 EMAIL_BEARING_TYPES = {ALERT, EMAIL_SEND}
 
@@ -149,7 +153,53 @@ def _text(limit: int) -> Callable[[Any], bool]:
     return lambda v: isinstance(v, str) and 0 < len(v) <= limit
 
 
+def _hex64(value: Any) -> bool:
+    return isinstance(value, str) and len(value) == 64 and all(c in "0123456789abcdef" for c in value)
+
+
+def _tool_args(value: Any) -> bool:
+    """Shape only; the tool gateway checks the exact arguments for each tool."""
+    if not isinstance(value, dict) or len(value) > 8:
+        return False
+    for key, item in value.items():
+        if not isinstance(key, str) or not 0 < len(key) <= 32:
+            return False
+        if isinstance(item, str):
+            if len(item) > 600:
+                return False
+        elif not (isinstance(item, bool) or _is_number(item)):
+            return False
+    return True
+
+
+def _evidence(value: Any) -> bool:
+    """1-4 cited sources: ``{"claim": text, "source": {"context", "id", "span"}}`` (PRD 7.6)."""
+    if not isinstance(value, list) or not 1 <= len(value) <= 4:
+        return False
+    for item in value:
+        if not isinstance(item, dict) or set(item) != {"claim", "source"}:
+            return False
+        source = item["source"]
+        if not _text(240)(item["claim"]) or not isinstance(source, dict) or not set(source) <= {"context", "id", "span"}:
+            return False
+        if not _text(40)(source.get("context")) or not _text(64)(source.get("id")):
+            return False
+        span = source.get("span")
+        if span is not None and not (isinstance(span, list) and len(span) == 2 and all(
+                isinstance(n, int) and not isinstance(n, bool) and 0 <= n <= 10 ** 7 for n in span)):
+            return False
+    return True
+
+
+def _resources(value: Any) -> bool:
+    return isinstance(value, list) and len(value) <= 10 and all(_text(64)(r) for r in value)
+
+
 PAYLOAD_SCHEMAS: Dict[str, Dict[str, Callable[[Any], bool]]] = {
+    TOOL_REQUEST: {"task_id": _text(64), "manifest_hash": _hex64, "tool": _text(40), "args": _tool_args,
+                   "purpose": _text(200), "task_link": _text(200), "evidence": _evidence,
+                   "resources_requested": _resources, "destination": _text(80),
+                   "risk_level": lambda v: v in ("low", "medium", "high", "critical")},
     TELEMETRY: {"risk_score": _score, "signals": _signals, "source": _text(40)},
     ALERT: {"risk_score": _score, "threshold": _score, "signals": _signals, "summary": _text(200)},
     EMAIL_SEND: {"template": lambda v: v == "threshold_alert", "incident_id": _text(128),
