@@ -18,7 +18,8 @@ A runtime containment layer for AI agents. Core principle (from the PRD): **untr
 ```powershell
 python -m unittest discover -t . -s tests -v   # full suite; must stay green
 python -m tripwire serve --open                 # console at http://127.0.0.1:8765
-python -m tripwire demo                         # scripted terminal story
+python -m tripwire demo                         # scripted terminal story (event mode)
+python -m tripwire invoice-demo                 # PRD demo script (task mode)
 python -m tripwire attack-demo                  # strict vs baseline matrix
 ```
 Set `$env:TRIPWIRE_RECOVERY_CODE="TW-JUDGE-42"` for a predictable lockdown recovery code.
@@ -26,12 +27,15 @@ Set `$env:TRIPWIRE_RECOVERY_CODE="TW-JUDGE-42"` for a predictable lockdown recov
 ## Layout
 - `tripwire/protocol.py`: envelope v2, per-agent HMAC keys, route table, strict payload schemas
 - `tripwire/gateway.py`: default-deny pipeline, action policy, intrusion pressure, audit and outbox hooks
+- `tripwire/tools_gateway.py`, `manifest.py`, `context.py`, `intent.py`: capability gateway, signed manifest, trust contexts, intent check
+- `tripwire/approvals.py`, `lineage.py`, `report.py`: approval queue, data lineage, blast-radius report
+- `tripwire/vault.py`, `tools.py`, `planner.py`, `scenarios.py`: synthetic data, mock tools, naive planner, document scenarios
 - `tripwire/firewall.py`: NORMAL / BLOCKING / LOCKDOWN + recovery code
 - `tripwire/agents.py`, `risk.py`, `attacks.py`: agents, risk model, adversary scenarios
 - `tripwire/notifications.py`: mock email; `audit.py`: HMAC-chained audit log
 - `tripwire/session.py`: wiring, metrics, attack runner; `server.py`: stdlib HTTP API; `dashboard.html`: UI
 - `tests/`: unittest suite (`tests/helpers.py` has `make_session`, `FakeClock`)
-- `docs/`: DEMO.md, adr/, claude-code/ (build prompts)
+- `docs/`: DEMO.md, DECK_NOTES.md, adr/, reference/ (PRD, deck), screenshots/, claude-code/ (build prompts)
 
 ## Conventions
 - The gateway is the only enforcement point. Agents produce envelopes and requests; they never call tools or each other.

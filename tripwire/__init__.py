@@ -1,3 +1,3 @@
-"""TripWire: policy-enforced runtime defense for multi-agent communication."""
+"""TripWire: runtime containment for AI agents (task-scoped capabilities over a policy-enforced gateway)."""
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

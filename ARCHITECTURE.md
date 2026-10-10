@@ -1,6 +1,8 @@
 # TripWire Architecture
 
-This document describes the code that is actually in this repository (protocol v2). It is a design guide for a local hackathon demonstration, not a deployment specification.
+This document describes the code that is actually in this repository (protocol v2 plus the task-scoped capability layer). It is a design guide for a local hackathon demonstration, not a deployment specification.
+
+Sections 1-11 cover the message gateway and the original event mode. Sections 12-19 cover task mode: trust contexts, the manifest, the capability gateway, approvals, lineage, blast radius, scenarios and replay.
 
 ## 1. Problem and goals
 
@@ -26,8 +28,16 @@ Out of scope: transport encryption, separate processes or hosts, real email, OS 
 | `risk.py` | Deterministic risk model and event streams |
 | `notifications.py` | `MockEmailService`: records every attempt; only authorised ones reach `outbox.jsonl` |
 | `audit.py` | `AuditLog`: HMAC hash chain, `verify()` |
-| `session.py` | Wires all of the above; ground-truth metrics; background attack runner; reset |
+| `session.py` | Wires all of the above; ground-truth metrics; background attack runner; task flow; replay; reset |
 | `server.py` | Standard-library HTTP API and security headers; serves `dashboard.html` |
+| `context.py` | Four trust contexts, `Provenance`, display-only instruction detector |
+| `manifest.py` | `Manifest`, `PolicyTemplate`, `ManifestAuthority` (issue, sign, verify) |
+| `tools_gateway.py` | `ToolGateway` stages, `Task`, `ToolRegistry` with execution counters, `ToolVerdict`, approved execution |
+| `intent.py` | Effect and data classes per tool; intent-to-task evaluator |
+| `approvals.py` | `ApprovalQueue`: pending, decided, executed or blocked |
+| `lineage.py`, `report.py` | Lineage entry per tool request; blast-radius report computed from lineage |
+| `vault.py`, `tools.py` | Synthetic CRM, invoices, vendors, canaries; the eight mock tools |
+| `planner.py`, `scenarios.py` | Agent 1's deterministic naive planner; document fixtures and judge mode |
 
 ## 3. Trust boundaries
 
@@ -163,4 +173,110 @@ All POST bodies are JSON objects of 4 KB or less. POSTs need `X-TripWire-Client:
 
 ## 11. Testing
 
-`python -m unittest discover -t . -s tests -v` runs 54 tests: protocol checks with MAC coverage of each header field; workflow tests for below, at and above the threshold, one email per incident and validator refusal; firewall transitions, throttling, reset-can't-bypass and burning; automatic lockdown and decay; audit tamper and deletion; concurrency (race against BLOCKING, concurrent replay); every attack scenario in both profiles; the bounded and stoppable runner; and the API, including CSRF and input validation. A guided-demo regression test mirrors the dashboard script. CI runs on Ubuntu and Windows with Python 3.10, 3.12 and 3.13.
+`python -m unittest discover -t . -s tests -v` runs 204 tests. The original 54 are unchanged: protocol checks with MAC coverage of each header field; workflow tests for below, at and above the threshold, one email per incident and validator refusal; firewall transitions, throttling, reset-can't-bypass and burning; automatic lockdown and decay; audit tamper and deletion; concurrency (race against BLOCKING, concurrent replay); every attack scenario in both profiles; the bounded and stoppable runner; and the API, including CSRF and input validation. A guided-demo regression test mirrors the dashboard script. CI runs on Ubuntu and Windows with Python 3.10, 3.12 and 3.13.
+
+The 150 task-mode tests cover: contexts and the detector (`test_context`); manifest immutability, signature and "document text cannot expand capabilities" (`test_manifest`); effect-class intent with paraphrases (`test_intent`); one test per decision code, execution counters at 0 for blocked tools, provenance forgery, firewall precedence and an event-mode regression (`test_capability`); the vault and tools with sockets patched to fail (`test_tools`); approvals including agent self-approval and LOCKDOWN after approval (`test_approvals`); lineage and a blast-radius recomputation with independent loops (`test_lineage_report`); scenarios, planner, judge mode and replay (`test_scenarios`); the PRD endpoints, guard, validation, secret leakage and timing (`test_task_api`); and PRD section 13 criteria 1-8 as `test_ac1` .. `test_ac8` (`test_acceptance`).
+
+## 12. Trust contexts and provenance
+
+| Context | Trust | Can authorise a tool? |
+|---|---|---|
+| `system_policy` | trusted | yes |
+| `user_task` | trusted within policy | yes, inside the system policy |
+| `document` | untrusted evidence | no |
+| `tool_output` | data only | no |
+
+A `Provenance(context, source_id, span)` travels with every evidence item in a tool request. Its trust level is derived from the context and cannot be set separately.
+
+`detect_instructions()` tags imperative sentences in documents as `untrusted_instruction` with exact character spans. **It is for display and logging only.** No enforcement path calls it. It is a heuristic and misses rephrased instructions; `test_capability.NovelInstructionTests` pins one such miss and shows the action is blocked regardless.
+
+## 13. Task policy manifest
+
+`ManifestAuthority.issue()` takes a `PolicyTemplate` (system policy: tools, forbidden tools, destinations, limit, approval rules, permitted data prefixes) and the user's task (goal text and record ids, both labelled `user_task`). It refuses any input labelled `document` or `tool_output`, wildcard scopes, and scopes outside the template. Goal effects are derived from the trusted goal and capped by the template.
+
+The result is a frozen dataclass signed with a gateway-only HMAC-SHA256 key. Its SHA-256 hash is shown in the console and written to the audit log (`task.start`). On every tool request the gateway re-verifies the signature, the content hash and the hash the request presents; any difference is `MANIFEST_TAMPERED`. A manifest expires when its task completes or after its lifetime (15 minutes by default); later requests get `CAPABILITY_EXPIRED`. There is no amend operation.
+
+Invoice task manifest: tools `extract_invoice_fields`, `get_vendor_record`, `create_payment_draft`; forbidden `export_customer_list`, `get_customer_records`, `send_email`, `upload_external_file`; data scope the task's invoice and its vendor of record; limit ₹50,000; destination `internal-accounting`; approval for `payment_over_limit`, `bank_account_change`, `new_vendor`, `external_destination`.
+
+## 14. Capability tool gateway
+
+`tool.request` (Agent 1 → `gateway:tools`) is a normal envelope, so stages 1-13 of section 5 apply first. Tool requests draw on a rate budget per (sender, task) of 24. Then `ToolGateway.handle()` runs under the same `Firewall.lock`:
+
+| # | Stage | Decided by | Code |
+|---|---|---|---|
+| 1 | Manifest signature, hash, task state, lifetime | gateway | `MANIFEST_TAMPERED`, `CAPABILITY_EXPIRED` |
+| 2 | Exact argument schema for the tool | gateway | `PAYLOAD_INVALID` |
+| 3 | Tool forbidden / allowed / approval-gated | gateway | `TOOL_FORBIDDEN`, `TOOL_NOT_IN_MANIFEST` |
+| 4 | Records derived from arguments and artifacts, plus the agent's declaration, inside `allowed_data` | gateway | `DATA_OUT_OF_SCOPE` |
+| 5 | Declared and argument destinations on the allowlist | gateway | `DESTINATION_NOT_ALLOWED` |
+| 6 | Effect class and data class fit the goal | Agent 2 | `INTENT_MISMATCH` |
+| 7 | At least one verified, authorising evidence source | gateway verifies, Agent 2 judges | `UNTRUSTED_AUTHORITY` |
+| 8 | Canary token in an egress payload | gateway | `CANARY_EGRESS` |
+| 9 | Payment above the limit | gateway | `PAYMENT_OVER_LIMIT` |
+| 10 | Approval rules | gateway | `APPROVAL_REQUIRED` |
+
+All stages are evaluated so the ledger can list every violated rule; the first violated stage supplies the code. Decision: any blocking violation gives `BLOCK`; otherwise any approval trigger gives `REQUIRE_APPROVAL`; otherwise `ALLOW` and the tool runs. An approval-gated action whose only evidence is untrusted is paused for a person, not refused, and the card says so.
+
+Evidence verification uses what the gateway holds: a `user_task` claim must appear in the task goal and name this task; a `document` quote must match the task document (by span when given); a `system_policy` claim must be a clause of this manifest; a `tool_output` reference must be an output of this task.
+
+Intent (`intent.py`): each tool has an effect class (`read_invoice`, `read_vendor`, `draft_payment`, `modify_vendor_bank`, `read_customer_pii`, `bulk_export`, `external_egress`, `internal_notify`) and a data class (`invoice`, `vendor`, `customer_pii`, `canary`). An egress tool counts as `internal_notify` only for an exact internal destination name. `classify()` has no parameter for the agent's wording.
+
+Agent 2 also keeps a task risk score with the original recurrence, `score = min(100, 0.8·prev + weight[code])`, where an allowed call weighs 0 and refusals weigh 10-45 (`risk.TOOL_WEIGHTS`). At the operator's threshold (default 70) it requests `action.email.send` to the internal SOC recipient through the existing route, once per task.
+
+Intrusion pressure: tool refusals weigh 2-6 (`MANIFEST_TAMPERED` 20), against 40-50 for forged or misrouted envelopes. Each scenario alone, all five in a row and the PRD demo stay below a quarter of the default limit of 200; the full channel-attack sequence still locks the system down, which freezes task mode too.
+
+## 15. Human approval
+
+`ApprovalQueue.create()` files a pending item with the requested action, the agent's justification, each evidence source with its provenance and verification result, the affected data, risk, triggers and a 10-minute expiry. The tool does not run.
+
+Only `Session.decide_approval()` decides, and the HTTP endpoint fixes the approver to the operator. There is no message type, route or tool for approving, and agent identities are refused as approvers. On approve, `ToolGateway.execute_approved()` re-checks the firewall mode, manifest signature and hash, task state and lifetime, forbidden tools, arguments, data scope and destinations, then runs the tool. A LOCKDOWN after the request still blocks; the approval is spent either way.
+
+## 16. Lineage and blast radius
+
+`LineageLog.record()` writes one entry per evaluated tool request: source records, documents and artifacts; data classes and sensitivity; the record ids at stake, resolved from the vault index without reading the data; canaries; transformations; destinations; amount; the decision; the protected policy's violations and triggers; and whether the tool ran. Bulk data moves as task artifacts (`art-0001`), which is how an export is followed into an upload.
+
+`blast_radius(task_id, entries)` is a pure function of those entries.
+
+| Severity | Rule (highest match wins) |
+|---|---|
+| Critical | Sensitive records or a canary inside an egress to a non-internal destination |
+| High | Sensitive records read or exported; a vendor bank-account change; any canary touched |
+| Medium | Any other policy violation or approval trigger |
+| Low | No violation and no approval trigger |
+
+`attempted_severity` applies the rules to every out-of-policy request. `severity` applies them only to requests that executed against policy without a human approval. Containment is `CLEAN`, `CONTAINED`, `PENDING_APPROVAL` or `BREACHED`. A test recomputes every number with independent loops and compares.
+
+## 17. Scenarios, judge mode and replay
+
+`scenarios.py` renders invoice documents from the vault's records and adds the attack text: footer injection (INV-1042), vendor bank-change notice (INV-1042), a linked supporting document (INV-1044 with SUP-1044), plus a clean invoice and an over-limit invoice (INV-1043, ₹72,000). Judge mode inserts up to three validated one-line sentences into the document before the agent runs.
+
+`Session.run_agent()` writes the timeline in PRD order: `task.assigned`, `document.read`, `instruction.detected`, one `tool.decision` per proposal, `task.result`, `task.report`, `task.closed`.
+
+`Session.replay()` runs the scenario twice in throwaway sessions with their own vault, outbox, egress log and audit chain: once in the `baseline` profile, which executes tool requests unchecked and records what the protected gateway would have decided, and once protected. The live session never changes profile. The result is labelled "Counterfactual red-team simulation".
+
+## 18. Task-mode HTTP API
+
+| Method & path | Body | Effect |
+|---|---|---|
+| `GET /api/scenarios` | | Document scenarios and channel attacks |
+| `POST /api/tasks/start` | `{"scenario", "goal"?, "instruction"?}` | Issue the manifest, open the task |
+| `GET /api/tasks/{id}` / `/document` / `/timeline` / `/report` | | Task view and its parts |
+| `POST /api/tasks/{id}/agent/run` | `{}` | Agent 1 reads, plans and proposes; 400 on a second run |
+| `POST /api/gateway/tool-call` | `{"task_id", "tool", "args", …}` | One proposal signed by Agent 1 |
+| `POST /api/tasks/{id}/approval` | `{"approval_id", "decision": "approve"\|"reject"}` | 404 if the approval is not this task's; 409 if already decided |
+| `POST /api/tasks/{id}/inject` | `{"instruction"}` | Judge mode; 400 after the agent has run |
+| `POST /api/replay` | `{"scenario", "instruction"?}` | Baseline and protected views |
+
+Unknown body fields are refused. No response carries a signing key, the manifest signature, the recovery code or an unmasked canary.
+
+## 19. Honest limitations of task mode
+
+- There is no LLM. Agent 1 is a rule-based planner (ADR 0009). Behaviour against a real model is not measured.
+- The planner acts only on phrasings its rules recognise.
+- The intent check is a fixed table of effect and data classes; it is not learned and does not generalise to tools without a profile.
+- Agent 2 performs the intent and evidence-authority judgement. A compromised Agent 2 could under-report within the manifest's bounds; it cannot widen them or approve.
+- Evidence verification is textual containment. An agent can truthfully cite the user's goal while proposing something unrelated; the other stages are what stop that.
+- The approver is "whoever can reach the local console". There are no user accounts.
+- Canary detection is exact-token matching. Encoded or split tokens would not be seen.
+- The `new_vendor` trigger exists, but no PRD tool creates a vendor.
+- Keys, tasks, approvals and lineage are in memory and reset with the process.

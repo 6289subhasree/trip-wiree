@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tripwire-protocol"
-version = "0.2.0"
-description = "TripWire: policy-enforced gateway, firewall and adversary simulation for multi-agent communication"
+version = "0.3.0"
+description = "TripWire: runtime containment for AI agents - signed task manifests, a capability tool gateway and adversary simulation"
 requires-python = ">=3.10"
 dependencies = []
 
