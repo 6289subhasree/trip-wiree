@@ -80,13 +80,24 @@ class FirewallTests(unittest.TestCase):
         self.assertEqual(self.s.outbox.file_count(), 0)
         self.assertIn("BLOCKED", {r["status"] for r in self.s.outbox.records})
 
-    def test_blocked_messages_are_not_consumed(self):
+    def test_messages_blocked_by_firewall_cannot_be_reinjected_after_release(self):
+        self.s.report_score(90)
         self.s.set_firewall("BLOCKING")
         wire = self.s.monitor.alert()
         import copy
         self.assertEqual(self.s.legit(copy.deepcopy(wire)).outcome, "BLOCKED")
         self.s.set_firewall("NORMAL")
-        self.assertEqual(self.s.legit(wire).outcome, "ACCEPTED")  # not marked as replay
+        self.assertEqual(self.s.attack(wire, "reinject").code, "REPLAY")  # burned while blocked
+        self.assertEqual(self.s.outbox.delivered_count, 1)
+        self.assertEqual(self.s.send_alert().outcome, "ACCEPTED")  # fresh traffic still works
+
+    def test_forged_messages_while_blocked_do_not_burn_legit_sequence(self):
+        self.s.set_firewall("BLOCKING")
+        forged = self.s.adversary.signer.sign(VALIDATOR, ALERT, {"risk_score": 90, "threshold": 70, "signals": [],
+                                              "summary": "x"}, sender_id="agent-1-monitor", sequence_number=10**9)
+        self.assertEqual(self.s.attack(forged, "t").would_fail, "BAD_MAC")
+        self.s.set_firewall("NORMAL")
+        self.assertEqual(self.s.report_score(10).outcome, "ACCEPTED")
 
     def test_blocking_release_without_code_but_lockdown_needs_code(self):
         self.s.set_firewall("BLOCKING")

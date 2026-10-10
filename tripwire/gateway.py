@@ -186,8 +186,11 @@ class Gateway:
             mode = self.firewall.mode
             d.outcome, d.code = BLOCKED, f"FIREWALL_{mode}"
             d.reason = f"firewall {mode}: {self.firewall.reason}"
-            try:  # non-mutating inspection, purely to label what else was wrong with it
+            try:  # inspection, to label what else was wrong with it
                 self._validate(wire, now, commit=False)
+                # Authentic, otherwise-valid message denied by the firewall: burn its nonce, id and
+                # sequence so a MITM who captured it cannot re-inject it after recovery.
+                self._burn(wire, now)
             except ProtocolError as exc:
                 d.would_fail = exc.code
         else:
@@ -249,6 +252,13 @@ class Gateway:
             self._seen["id:" + wire["message_id"]] = now
             self._last_seq[sender] = wire["sequence_number"]
             self._prune(now)
+
+    def _burn(self, wire: Dict[str, Any], now: float) -> None:
+        if self.profile != STRICT:
+            return
+        self._seen[wire["nonce"]] = now
+        self._seen["id:" + wire["message_id"]] = now
+        self._last_seq[wire["sender_id"]] = max(self._last_seq.get(wire["sender_id"], 0), wire["sequence_number"])
 
     def _prune(self, now: float) -> None:
         # Entries older than the freshness window can be forgotten: such messages are STALE anyway.

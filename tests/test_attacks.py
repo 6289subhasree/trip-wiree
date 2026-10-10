@@ -106,3 +106,30 @@ class SequenceRunnerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GuidedDemoRegressionTests(unittest.TestCase):
+    def test_guided_demo_sequence_yields_no_unauthorized_email(self):
+        """Mirrors the dashboard's guided demo. Regression: a message blocked during BLOCKING
+        used to be replayable after release and produced an unauthorized email."""
+        s = make_session(self)
+        for _ in range(3):
+            s.stream_step("baseline")
+        s.reset_streams()
+        for _ in range(5):
+            s.stream_step("incident")
+        self.assertEqual(s.outbox.delivered_count, 1)
+        s.run_attack("tamper")
+        s.run_attack("forged_sender")
+        s.set_firewall("BLOCKING")
+        self.assertEqual(s.send_alert().outcome, "BLOCKED")
+        s.set_firewall("NORMAL")
+        for sc in SCENARIOS:
+            s.run_attack(sc.id)
+        m = s.metrics()
+        self.assertEqual(m["unauthorized_emails"], 0)
+        self.assertEqual(s.outbox.delivered_count, 1)
+        self.assertEqual(s.firewall.mode, "LOCKDOWN")
+        self.assertTrue(s.audit.verify()["ok"])
+        passed = [r for r in s.attack_log if r["outcome"] == "ACCEPTED"]
+        self.assertTrue(all(r["scenario"] == "flood" for r in passed))
