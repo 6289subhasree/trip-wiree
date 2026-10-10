@@ -22,6 +22,7 @@ from dataclasses import dataclass, field, fields
 from typing import Any, Callable, Dict, Optional, Sequence, Tuple
 
 from .context import SYSTEM_POLICY, USER_TASK, Labelled, Provenance
+from .intent import effects_for_goal
 from .protocol import MAC_ALGORITHM, ProtocolError, canonical_bytes, compute_mac
 
 DEFAULT_PAYMENT_LIMIT_INR = 50000
@@ -163,7 +164,12 @@ class ManifestAuthority:
 
     @staticmethod
     def _effects(goal_text: str, template: PolicyTemplate) -> Tuple[str, ...]:
-        return tuple(template.goal_effects)
+        """Effects this goal needs, never more than the policy template allows."""
+        effects = effects_for_goal(goal_text, ceiling=template.goal_effects)
+        if not effects:
+            raise ManifestError("MANIFEST_INVALID", f"goal does not describe a task that policy "
+                                                    f"'{template.id}' covers")
+        return effects
 
     def verify(self, signed: Any, presented_hash: Optional[str] = None) -> Manifest:
         """Return the manifest if it is exactly what this authority signed, else raise."""
