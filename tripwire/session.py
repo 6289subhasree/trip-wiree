@@ -21,6 +21,8 @@ from .attacks import SCENARIO_INDEX, SCENARIOS, Adversary
 from .audit import AuditLog
 from .context import USER_TASK, Labelled
 from .firewall import Firewall, FirewallError
+from .lineage import LineageLog
+from .report import blast_radius
 from .gateway import ACCEPTED, BASELINE, BLOCKED, CODE_HELP, REJECTED, STRICT, Decision, Gateway
 from .manifest import INVOICE_POLICY, ManifestAuthority, PolicyTemplate
 from .notifications import EgressLog, MockEmailService
@@ -81,7 +83,8 @@ class Session:
         self.approvals = ApprovalQueue(clock=self.clock, audit=self.audit,
                                        agent_ids=(MONITOR, VALIDATOR, ADVERSARY, TOOL_GATEWAY, EMAIL_ACTION))
         self.tools.approvals = self.approvals
-        self.lineage = None
+        self.lineage = LineageLog(self.vault, self.clock)
+        self.tools.lineage = self.lineage
         self._task_n = 0
         self.adversary = Adversary(adversary_key, self.clock)
         self.channel_tap: Deque[Dict[str, Any]] = deque(maxlen=50)
@@ -255,11 +258,18 @@ class Session:
                          data_scope=item["affected_data"], approval_id=item["id"])
             if approve:
                 self.approvals.settle(item["id"], self.tools.execute_approved(item, self.firewall))
-            elif self.lineage is not None and item.get("lineage_id"):
+            elif item.get("lineage_id"):
                 self.lineage.settle(item["lineage_id"], executed=False, approved_by=None, code="APPROVAL_REJECTED")
             if task is not None and task.state == AWAITING_APPROVAL and not self.approvals.pending(task.task_id):
                 task.state = OPEN
             return self.approvals.view(item)
+
+    def report(self, task_id: str) -> Dict[str, Any]:
+        """Blast-radius report for one task, recomputed from lineage every time it is asked for."""
+        with self.lock:
+            if task_id not in self.tools.tasks:
+                raise ValueError(f"unknown task '{str(task_id)[:40]}'")
+            return blast_radius(task_id, self.lineage.for_task(task_id))
 
     def complete_task(self, task_id: str, reason: str = "task completed") -> None:
         with self.lock:
