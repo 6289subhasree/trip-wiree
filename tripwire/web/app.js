@@ -72,7 +72,7 @@ const TW = (() => {
   // shared top navigation
   function nav(active) {
     const links = [["/", "Home", "home"], ["/demo", "Live demo", "demo"], ["/arena", "Attack arena", "arena"],
-                   ["/evidence", "Evidence", "evidence"], ["/console", "Console", "console"]];
+                   ["/simulation", "Simulation", "simulation"], ["/evidence", "Evidence", "evidence"], ["/console", "Console", "console"]];
     const menu = h("nav", {class: "navlinks", id: "navlinks"},
       links.map(([href, label, key]) => h("a", {href, class: key === active ? "on" : null}, label)));
     const bar = h("header", {class: "nav"}, h("div", {class: "wrap"},

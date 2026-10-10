@@ -120,7 +120,8 @@ _GOAL_RULES: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
     (r"\bvendor\b|\bsupplier\b", (READ_VENDOR,)),
     (r"\bpayment\s+draft\b|\bdraft\b[^.]{0,30}\bpayment\b|\bprepare\b[^.]{0,30}\bpayment\b",
      (READ_INVOICE, READ_VENDOR, DRAFT_PAYMENT)),
-    (r"\bremittance\b|\bemail\b|\bsend\b|\bnotify\b", (EXTERNAL_EGRESS,)),
+    # A goal that names a mailbox ("draft a leave request to a@b.example") needs egress too.
+    (r"\bremittance\b|\bemail\b|\bsend\b|\bnotify\b|[\w.+-]+@[\w-]+(?:\.[\w-]+)+", (EXTERNAL_EGRESS,)),
 )
 
 

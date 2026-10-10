@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TripWire · Simulation</title>
+<link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="/static/sim.css">
+</head>
+<body data-fw="on">
+<main>
+  <div class="wrap">
+    <div class="page-head">
+      <div class="eyebrow">Simulation · three agents</div>
+      <h2 class="h2">One instruction. One attacker. One switch.</h2>
+      <p class="lead">Agent 1 writes your email, Agent 2 reviews it at the gateway, Agent 3 tries to hijack it. Flip the firewall and run the same attack twice.</p>
+    </div>
+
+    <section class="split" aria-label="Simulation">
+      <!-- Pane A: attack dashboard -->
+      <article class="pane attack" aria-labelledby="atk-title">
+        <header class="pane-head">
+          <div>
+            <div class="label">Agent 3 · attacker</div>
+            <h3 class="h3" id="atk-title">Attack dashboard</h3>
+          </div>
+          <span class="tag" id="attack-state">Agent 3 idle</span>
+        </header>
+
+        <div class="switchrow">
+          <button type="button" class="switch" id="fw-toggle" role="switch" aria-checked="true" aria-labelledby="fw-state">
+            <span class="knob"></span>
+          </button>
+          <div>
+            <b id="fw-state">TripWire ON</b>
+            <p id="fw-note"></p>
+          </div>
+        </div>
+
+        <button type="button" class="btn red wide" id="attack-btn">Launch attack</button>
+        <p class="hint">Agent 3 plants two lines in the note Agent 1 reads and forges one request in Agent 1's name.</p>
+
+        <div class="label">Attack telemetry</div>
+        <div class="term" id="attack-log" role="log" aria-live="polite"></div>
+      </article>
+
+      <!-- Pane B: threat and defender dashboard -->
+      <article class="pane defend" aria-labelledby="def-title">
+        <header class="pane-head">
+          <div>
+            <div class="label">Gateway · Agent 2</div>
+            <h3 class="h3" id="def-title">Threat and defender dashboard</h3>
+          </div>
+          <span class="tag" id="run-state">Waiting</span>
+        </header>
+
+        <div class="topo" id="topology">
+          <div class="node" id="node-user"><span class="n">HUMAN</span><h4>User</h4><p>types the instruction</p></div>
+          <div class="link" id="link-user"></div>
+          <div class="node" id="node-agent1"><span class="n">AGENT 1</span><h4>Writer</h4><p>drafts, proposes send_email</p></div>
+          <div class="link" id="link-agent1"></div>
+          <div class="node" id="node-agent2"><span class="n">AGENT 2</span><h4>Verifier</h4><p id="node-agent2-sub"></p></div>
+          <div class="link" id="link-agent2"></div>
+          <div class="node" id="node-egress"><span class="n">EGRESS</span><h4>Outbox</h4><p>simulated delivery</p></div>
+          <div class="uplink" id="link-agent3"></div>
+          <div class="node adv" id="node-agent3"><span class="n">AGENT 3</span><h4>Attacker</h4><p>injects into Agent 1's context</p></div>
+        </div>
+
+        <div class="verdict hidden" id="verdict"></div>
+
+        <div class="label hidden" id="appr-label">Waiting for you</div>
+        <div class="mails" id="approvals"></div>
+
+        <div class="label">Gateway intercept log</div>
+        <div class="ledger" id="threat-log" role="log" aria-live="polite"></div>
+
+        <div class="label">Egress</div>
+        <div class="mails" id="egress"></div>
+      </article>
+    </section>
+  </div>
+</main>
+
+<!-- Bottom bar: the human's console -->
+<form class="chatbar" id="chat" autocomplete="off">
+  <div class="chatlog" id="chat-log" aria-live="polite"></div>
+  <div class="chatrow">
+    <input class="in" id="chat-input" aria-label="Instruction for Agent 1" maxlength="200" placeholder="Draft a leave request to abcd@gmail.com" value="Draft a leave request to abcd@gmail.com">
+    <button type="submit" class="btn primary" id="chat-send">
+      <svg class="spin" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" opacity=".25"></circle><path d="M21 12a9 9 0 0 0-9-9"></path></svg>
+      <span>Send</span>
+    </button>
+  </div>
+</form>
+
+<script src="/static/app.js"></script>
+<script src="/static/sim.js"></script>
+</body>
+</html>

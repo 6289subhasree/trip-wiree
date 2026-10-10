@@ -8,8 +8,8 @@ custom header forces a CORS pre-flight, which this server never approves) and an
 header must match the ``Host`` header. The recovery code is never returned by any endpoint.
 
 Pages: "/" is the built landing page (vantage/out, with its /_next/ and /assets/ files) or, when
-that folder is absent, the classic page, which is always at /classic. /demo, /arena, /evidence and
-/console are served from this package.
+that folder is absent, the classic page, which is always at /classic. /demo, /arena, /evidence,
+/simulation and /console are served from this package.
 
 Task mode (PRD 12) adds:
 
@@ -23,6 +23,8 @@ Task mode (PRD 12) adds:
     GET  /api/tasks/{id}/report             blast-radius report
     POST /api/tasks/{id}/inject             judge mode: {"instruction", "force"?: {"tool", "destination"?, "record"?}}
     POST /api/replay                        {"scenario", "instruction"?, "force"?}
+    POST /api/demo/execute                  {"firewall_active", "human_prompt", "attack_active"} (/simulation)
+    POST /api/demo/approval                 {"run_id", "approval_id", "decision": "approve" | "reject"}
 
 The same guard, body limit and validation apply. Responses never contain a signing key, the
 recovery code or an unmasked canary token.
@@ -39,6 +41,7 @@ from urllib.parse import urlparse
 
 from .approvals import ApprovalError
 from .attacks import SCENARIOS as CHANNEL_ATTACKS
+from .demo_sim import DemoPipeline
 from .firewall import FirewallError
 from .scenarios import DOC_SCENARIOS
 from .session import Session
@@ -47,9 +50,12 @@ MAX_BODY = 4096
 
 # Multi-page web front end (tripwire/web). The original single-page console stays at /console.
 WEB_DIR = Path(__file__).with_name("web")
-PAGES = {"/classic": "index.html", "/demo": "demo.html", "/arena": "arena.html", "/evidence": "evidence.html"}
+PAGES = {"/classic": "index.html", "/demo": "demo.html", "/arena": "arena.html", "/evidence": "evidence.html",
+         "/simulation": "sim.html"}
 STATIC = {"/static/app.css": ("app.css", "text/css; charset=utf-8"),
-          "/static/app.js": ("app.js", "text/javascript; charset=utf-8")}
+          "/static/app.js": ("app.js", "text/javascript; charset=utf-8"),
+          "/static/sim.css": ("sim.css", "text/css; charset=utf-8"),
+          "/static/sim.js": ("sim.js", "text/javascript; charset=utf-8")}
 # Landing page: the committed Next.js static export in vantage/out, served on this origin at "/".
 # When that folder is absent (no build, or an installed package) "/" serves the classic page instead.
 LANDING_DIR = Path(__file__).resolve().parent.parent / "vantage" / "out"
@@ -177,6 +183,25 @@ def build_routes(s: Session) -> Dict[str, Callable[[Dict[str, Any], str], Any]]:
         s.current_task = data["task_id"]
         return {}
 
+    # /simulation runs in throwaway sessions (like replay); the live session only records that it happened.
+    pipeline = DemoPipeline(clock=s.clock)
+
+    def demo_audit(kind, result):
+        with s.lock:
+            s.audit.append(kind, {k: result[k] for k in (
+                "run_id", "profile", "attack_active", "status", "delivered", "compromised", "recipient")})
+        return result
+
+    def demo_execute(data, _):
+        _only(data, "firewall_active", "human_prompt", "attack_active")
+        pipeline.threshold = s.threshold
+        return demo_audit("demo.execute", pipeline.execute(
+            data.get("firewall_active"), data.get("human_prompt"), data.get("attack_active")))
+
+    def demo_approval(data, _):
+        _only(data, "run_id", "approval_id", "decision")
+        return demo_audit("demo.approval", pipeline.decide(
+            data.get("run_id"), data.get("approval_id"), data.get("decision")))
 
     def telemetry(data, _):
         # accepts {"score": n} or the legacy {"metric": "...", "value": n}
@@ -223,6 +248,8 @@ def build_routes(s: Session) -> Dict[str, Callable[[Dict[str, Any], str], Any]]:
         "/api/tasks/select": select,
         "/api/gateway/tool-call": tool_call,
         "/api/replay": replay,
+        "/api/demo/execute": demo_execute,
+        "/api/demo/approval": demo_approval,
         "/api/telemetry": telemetry,
         "/api/score": telemetry,
         "/api/event": event,
