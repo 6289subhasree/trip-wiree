@@ -26,7 +26,7 @@ def run_demo(args: argparse.Namespace) -> int:
     threshold = float(os.getenv("TRIPWIRE_THRESHOLD", "75"))
     firewall_on = os.getenv("TRIPWIRE_FIREWALL", "").lower() in {"1", "true", "on"}
     firewall_on = firewall_on or getattr(args, "firewall_on", False)
-    sentinel, relay, firewall, outbox = build_demo(args.outbox or os.getenv("TRIPWIRE_OUTBOX"), firewall_on)
+    sentinel, relay, firewall, outbox = build_demo(getattr(args, "outbox", None) or os.getenv("TRIPWIRE_OUTBOX"), firewall_on)
     print("TRIPWIRE :: three-agent communication demo")
     print(f"threshold={threshold:g} firewall={'ON' if firewall.enabled else 'OFF'}")
     for value in (42, 68, 82):
@@ -37,7 +37,7 @@ def run_demo(args: argparse.Namespace) -> int:
 
 
 def run_attack_demo(args: argparse.Namespace) -> int:
-    sentinel, relay, firewall, outbox = build_demo(args.outbox)
+    sentinel, relay, firewall, outbox = build_demo(getattr(args, "outbox", None))
     adversary = AdversaryAgent()
     original = sentinel.report("risk_score", 10)
     relay.receive(original, threshold=75)  # mark the original ID as seen for replay test
