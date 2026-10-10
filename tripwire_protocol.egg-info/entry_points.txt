@@ -1,2 +1,0 @@
-[console_scripts]
-tripwire = tripwire.__main__:main

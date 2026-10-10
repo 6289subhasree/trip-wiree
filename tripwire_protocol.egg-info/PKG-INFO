@@ -1,5 +1,0 @@
-Metadata-Version: 2.4
-Name: tripwire-protocol
-Version: 0.3.0
-Summary: TripWire: runtime containment for AI agents - signed task manifests, a capability tool gateway and adversary simulation
-Requires-Python: >=3.10

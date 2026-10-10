@@ -9,3 +9,13 @@ venv/
 
 # hand-off bundles
 *.bundle
+
+# packaging
+*.egg-info/
+
+# optional Next.js frontend (built locally, never committed)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/next-env.d.ts
+frontend/*.tsbuildinfo
