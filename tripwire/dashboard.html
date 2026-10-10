@@ -1,19 +1,473 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TripWire · Secure Agent Console</title>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TripWire · Security Console</title>
 <style>
-:root{color-scheme:dark;--bg:#080d14;--panel:#101925;--line:#223142;--muted:#8da0b5;--text:#e9f0f7;--cyan:#54d6d0;--green:#4bd39b;--red:#ff6878;--amber:#f5b942;--blue:#66a8ff}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% -15%,#153044 0,transparent 48%),var(--bg);color:var(--text);font:15px/1.5 "Segoe UI",system-ui,sans-serif}main{max-width:1320px;margin:auto;padding:30px 24px 60px}.top{display:flex;justify-content:space-between;gap:20px;align-items:center;margin-bottom:25px}.brand{display:flex;gap:15px;align-items:center}.logo{width:48px;height:48px;border:1px solid #36727b;border-radius:14px;display:grid;place-items:center;color:var(--cyan);font-size:24px;background:#10252d}.eyebrow,.label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.14em}.top h1{margin:0;font-size:24px;letter-spacing:.02em}.sub{color:var(--muted);font-size:13px}.status-pill,.badge{border:1px solid var(--line);border-radius:999px;padding:6px 11px;font-size:12px;display:inline-flex;gap:8px;align-items:center}.dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 12px currentColor}.grid{display:grid;gap:16px}.metrics{grid-template-columns:repeat(5,1fr);margin-bottom:16px}.card{background:linear-gradient(145deg,#121d2a,#0d151f);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 8px 22px #0002}.metric strong{display:block;font-size:25px;margin-top:8px}.metric small{color:var(--muted)}.agents{grid-template-columns:repeat(3,1fr);margin-bottom:16px}.agent{position:relative;overflow:hidden}.agent:after{content:"";position:absolute;width:90px;height:90px;border-radius:50%;right:-30px;top:-38px;background:#54d6d015}.agent h2{font-size:16px;margin:6px 0 3px}.agent p{margin:0;color:var(--muted);font-size:13px}.agent-head{display:flex;justify-content:space-between}.agent-id{font-size:11px;color:var(--cyan);letter-spacing:.1em}.layout{grid-template-columns:1.15fr .85fr;align-items:start}.section-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.section-title h2{font-size:16px;margin:0}.flow{display:flex;align-items:center;gap:12px;margin:6px 0 18px;padding:12px;background:#0a121a;border-radius:10px;color:var(--muted);font-size:13px}.flow-line{height:1px;background:var(--line);flex:1;position:relative}.flow-line:after{content:"›";position:absolute;right:-1px;top:-13px;color:var(--cyan);font-size:23px}.flow-state{color:var(--green)}.row{display:flex;gap:10px;align-items:end}.field{display:grid;gap:6px;flex:1}label{font-size:12px;color:var(--muted)}input{width:100%;background:#080f17;border:1px solid #2c3d50;border-radius:8px;padding:10px 12px;color:var(--text);font:inherit;outline:none}input:focus{border-color:var(--cyan)}button{border:1px solid #2b4354;border-radius:8px;padding:10px 13px;background:#152433;color:var(--text);font:600 13px inherit;cursor:pointer;transition:.15s}button:hover{border-color:var(--cyan);background:#1a303e}button.primary{background:#15505a;border-color:#27717a}button.danger{background:#401d27;border-color:#713744}button:disabled{opacity:.48;cursor:not-allowed}.threshold{display:flex;gap:8px;align-items:end;margin-top:15px}.threshold .field{max-width:190px}.divider{height:1px;background:var(--line);margin:18px 0}.switch-row{display:flex;justify-content:space-between;align-items:center}.switch{position:relative;width:48px;height:27px}.switch input{opacity:0;width:0;height:0}.slider{position:absolute;inset:0;border-radius:22px;background:#344352;cursor:pointer}.slider:before{content:"";position:absolute;height:19px;width:19px;left:4px;top:4px;background:#e8eef2;border-radius:50%;transition:.2s}.switch input:checked+.slider{background:#a94251}.switch input:checked+.slider:before{transform:translateX(21px)}.firewall-state{font-weight:700;color:var(--green)}.firewall-state.on{color:var(--red)}.attacks{display:grid;grid-template-columns:1fr 1fr;gap:8px}.wide{grid-column:1/-1}.feed,.alerts{max-height:370px;overflow:auto}.entry{display:grid;grid-template-columns:94px 1fr auto;gap:10px;padding:11px 0;border-bottom:1px solid #1d2936;font-size:12px}.entry:last-child{border:0}.entry time,.minor{color:var(--muted)}.entry strong{font-size:13px}.tag{padding:3px 8px;border-radius:999px;font-weight:700;font-size:10px;letter-spacing:.04em;height:max-content}.ACCEPTED{color:var(--green);background:#14372e}.ALERT{color:var(--amber);background:#403418}.REJECTED{color:var(--red);background:#3c1d28}.BLOCKED{color:#c49cff;background:#2c2140}.empty{padding:22px;text-align:center;color:var(--muted);font-size:13px}.alert-item{padding:12px 13px;margin-bottom:9px;border:1px solid #5b4721;border-left:3px solid var(--amber);border-radius:8px;background:#211c12;font-size:13px}.alert-item b{color:var(--amber)}.foot{margin-top:17px;color:var(--muted);font-size:11px;text-align:center}.toast{position:fixed;bottom:22px;left:50%;transform:translate(-50%,20px);opacity:0;background:#1a2a38;border:1px solid #385268;border-radius:9px;padding:10px 16px;transition:.2s;pointer-events:none}.toast.show{opacity:1;transform:translate(-50%,0)}@media(max-width:850px){.metrics{grid-template-columns:repeat(3,1fr)}.layout{grid-template-columns:1fr}}@media(max-width:560px){main{padding:18px 13px}.top{align-items:flex-start}.status-pill{font-size:10px}.agents{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}.metric strong{font-size:21px}.row{align-items:stretch;flex-direction:column}.threshold{align-items:stretch}.threshold .field{max-width:none}.entry{grid-template-columns:72px 1fr auto;gap:7px}.entry time{font-size:10px}}
-</style></head><body><main>
-<header class="top"><div class="brand"><div class="logo">⌁</div><div><div class="eyebrow">Local protocol lab / v1.0</div><h1>TripWire <span style="color:var(--cyan)">Security Console</span></h1><div class="sub">Authenticated telemetry · Three-agent simulation</div></div></div><div class="status-pill"><span class="dot" id="systemDot"></span><span id="systemText">SYSTEM ONLINE</span></div></header>
-<section class="grid metrics"><div class="card metric"><div class="label">Firewall</div><strong id="mFirewall">OFF</strong><small>Application layer</small></div><div class="card metric"><div class="label">Threshold</div><strong id="mThreshold">75</strong><small>Risk score limit</small></div><div class="card metric"><div class="label">Accepted</div><strong id="mAccepted">0</strong><small>Verified messages</small></div><div class="card metric"><div class="label">Rejected</div><strong id="mRejected">0</strong><small>Invalid or replayed</small></div><div class="card metric"><div class="label">Alerts</div><strong id="mAlerts">0</strong><small>Threshold crossings</small></div></section>
-<section class="grid agents"><div class="card agent"><div class="agent-head"><span class="agent-id">AGENT A</span><span class="badge"><i class="dot"></i> TRUSTED</span></div><h2>Sentinel</h2><p>Telemetry source · HMAC-SHA256 signer</p></div><div class="card agent"><div class="agent-head"><span class="agent-id">AGENT B</span><span class="badge"><i class="dot" id="relayDot"></i> <span id="relayState">READY</span></span></div><h2>Relay</h2><p>Signature, freshness, schema and replay checks</p></div><div class="card agent"><div class="agent-head"><span class="agent-id">AGENT C</span><span class="badge" style="color:var(--red)">SIMULATION ONLY</span></div><h2>Adversary</h2><p>Local test fixtures · No network activity</p></div></section>
-<section class="grid layout"><div class="grid"><div class="card"><div class="section-title"><h2>Message control</h2><span class="label">Sentinel → Relay</span></div><div class="flow"><span>Sentinel</span><span class="flow-line"></span><span class="flow-state" id="flowState">CHANNEL READY</span><span class="flow-line"></span><span>Relay</span></div><div class="row"><div class="field"><label for="metric">Metric name</label><input id="metric" maxlength="80" value="risk_score"></div><div class="field"><label for="value">Telemetry value</label><input id="value" type="number" step="any" value="42"></div><button class="primary" id="sendBtn">Send telemetry</button></div><div class="threshold"><div class="field"><label for="threshold">Alert threshold</label><input id="threshold" type="number" step="any" value="75"></div><button id="saveThreshold">Update threshold</button></div><div class="divider"></div><div class="switch-row"><div><b>Application firewall</b><div class="minor" style="font-size:12px">Fail-closed message processing kill switch</div><div id="fwText" class="firewall-state">DISABLED · Traffic permitted</div></div><label class="switch"><input id="firewall" type="checkbox" aria-label="Toggle application firewall"><span class="slider"></span></label></div></div>
-<div class="card"><div class="section-title"><h2>Adversary lab</h2><span class="label">In-process fixtures</span></div><div class="attacks"><button data-attack="tamper">↯ Tamper payload</button><button data-attack="replay">⟲ Replay message</button><button data-attack="forged">♙ Forge sender</button><button data-attack="malformed">◇ Malformed schema</button><button class="danger wide" id="attackSuite">Run complete attack suite</button></div><div class="divider"></div><div class="row" style="justify-content:space-between;align-items:center"><div class="minor" style="font-size:12px">Reset counters and activity for this session</div><button id="reset">Reset demo</button></div></div></div>
-<div class="grid"><div class="card"><div class="section-title"><h2>Message activity</h2><span class="label" id="feedCount">LIVE</span></div><div class="feed" id="feed"><div class="empty">No messages yet. Send a telemetry reading to begin.</div></div></div><div class="card"><div class="section-title"><h2>Alert notifications</h2><span class="label">LOCAL OUTBOX</span></div><div class="alerts" id="alerts"><div class="empty">No threshold crossings detected.</div></div></div></div></section><div class="foot">Local demo only · This simulation does not configure the operating-system firewall or provide production key management.</div></main><div class="toast" id="toast"></div>
+:root{
+  --bg:#070b11;--panel:#0e1621;--panel2:#0b121b;--line:#1e2b3b;--line2:#2a3b50;
+  --text:#e7eef6;--muted:#8193a8;--dim:#5c6d82;
+  --cyan:#4fd1c5;--green:#3ecf8e;--red:#ff5c6c;--amber:#f5b942;--blue:#5aa2ff;--violet:#a78bfa;
+  --mono:ui-monospace,"Cascadia Code","Consolas",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,-apple-system,sans-serif}
+body{background:radial-gradient(1200px 500px at 50% -200px,#12283a 0,transparent 70%),var(--bg)}
+main{max-width:1440px;margin:0 auto;padding:18px 18px 48px}
+h1,h2,h3{margin:0;font-weight:600}
+h2{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+button{font:inherit;color:var(--text);background:#16212f;border:1px solid var(--line2);border-radius:8px;padding:7px 11px;cursor:pointer;transition:.15s}
+button:hover{border-color:var(--cyan);background:#1a2838}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:#0f3a3a;border-color:#1f6b66}
+button.danger{background:#3a1218;border-color:#7a2633}
+button.warn{background:#3a2a0e;border-color:#7a5a1f}
+button.small{padding:4px 8px;font-size:12px}
+input,select{font:inherit;color:var(--text);background:#0a1119;border:1px solid var(--line2);border-radius:8px;padding:6px 9px}
+input[type=range]{padding:0;width:100%;accent-color:var(--cyan)}
+.mono{font-family:var(--mono)}
+.muted{color:var(--muted)}.dim{color:var(--dim)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grid{display:grid;gap:14px}
+.card{background:linear-gradient(160deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:14px;padding:14px 16px;min-width:0}
+.card>header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:14px;flex-wrap:wrap}
+.brand{display:flex;gap:12px;align-items:center}
+.logo{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;background:#0f2a2c;border:1px solid #23615f}
+.brand h1{font-size:20px;letter-spacing:.02em}
+.brand p{margin:0;color:var(--muted);font-size:12.5px}
+.pill{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:6px 12px;font-weight:600;font-size:12.5px;border:1px solid var(--line2);white-space:nowrap}
+.pill .dot{width:9px;height:9px;border-radius:50%;background:currentColor;box-shadow:0 0 10px currentColor}
+.m-NORMAL{color:var(--green);border-color:#1f5a40;background:#0c2219}
+.m-BLOCKING{color:var(--amber);border-color:#6b5020;background:#261c0a}
+.m-LOCKDOWN{color:var(--red);border-color:#7a2633;background:#2a0d12;animation:pulse 1.6s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 6px #ff5c6c22}}
+.banner{display:none;margin-bottom:14px;padding:10px 14px;border-radius:12px;border:1px solid #7a2633;background:#2a0d12;color:#ffc2c8}
+.banner.show{display:block}
+.status{grid-template-columns:1.25fr 1fr 1fr 1.6fr}
+.big{font-size:28px;font-weight:700;letter-spacing:.01em}
+.meter{position:relative;height:12px;border-radius:999px;background:#0a1119;border:1px solid var(--line);overflow:hidden;margin:10px 0 6px}
+.meter>i{position:absolute;inset:0 auto 0 0;border-radius:999px;transition:width .4s}
+.meter>b{position:absolute;top:-3px;bottom:-3px;width:2px;background:#fff}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.kpi{background:#0a1119;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.kpi b{display:block;font-size:20px}
+.kpi span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.kpi.bad b{color:var(--red)}.kpi.good b{color:var(--green)}
+.flowwrap{grid-template-columns:2fr 1fr}
+svg text{font-family:"Segoe UI",system-ui,sans-serif}
+.node rect{fill:#0d1824;stroke:var(--line2);stroke-width:1.5}
+.node.on rect{stroke:var(--cyan)}
+.node.bad rect{stroke:var(--red)}
+.node.iso rect{stroke:var(--amber);stroke-dasharray:4 3}
+.edge{stroke:var(--line2);stroke-width:2;fill:none}
+.edge.ok{stroke:var(--green)}.edge.no{stroke:var(--red)}.edge.blk{stroke:var(--amber)}
+.edge.anim{stroke-dasharray:6 6;animation:dash .8s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-12}}
+.last{font-family:var(--mono);font-size:12.5px;background:#0a1119;border:1px solid var(--line);border-radius:10px;padding:10px;min-height:64px;white-space:pre-wrap;word-break:break-word}
+.three{grid-template-columns:1fr 1.25fr 1fr}
+.two{grid-template-columns:1fr 1fr}
+.scen{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.sc{border:1px solid var(--line);background:#0a1119;border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:4px}
+.sc .t{font-weight:600;font-size:13px}
+.sc .d{font-size:11.5px;color:var(--muted);flex:1}
+.tag{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;border-radius:6px;padding:2px 6px;border:1px solid var(--line2);color:var(--muted);white-space:nowrap}
+.tag.external{color:var(--violet);border-color:#4b3a7a}.tag.mitm{color:var(--blue);border-color:#284a7a}.tag.compromised{color:var(--amber);border-color:#6b5020}
+.badge{font-family:var(--mono);font-size:11px;font-weight:600;padding:2px 7px;border-radius:6px;white-space:nowrap}
+.b-ACCEPTED,.b-SIMULATED_DELIVERY,.b-OK{background:#0c2a1e;color:var(--green)}
+.b-REJECTED{background:#2f0f15;color:var(--red)}
+.b-BLOCKED{background:#2d220a;color:var(--amber)}
+.b-SKIPPED{background:#1b2533;color:var(--muted)}
+.list{max-height:330px;overflow:auto;border-top:1px solid var(--line)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+td,th{padding:6px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.06em;position:sticky;top:0;background:var(--panel)}
+tr.atk td:first-child{box-shadow:inset 3px 0 var(--red)}
+tr.leg td:first-child{box-shadow:inset 3px 0 var(--green)}
+.steps{display:flex;flex-direction:column;gap:6px}
+.step{display:grid;grid-template-columns:26px 1fr auto;gap:8px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:7px 9px;background:#0a1119}
+.step .n{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#16212f;font-size:12px;font-weight:700}
+.step.done .n{background:#0c2a1e;color:var(--green)}
+.step.cur{border-color:var(--cyan)}
+.step small{display:block;color:var(--muted);font-size:11.5px}
+.toast{position:fixed;right:18px;bottom:18px;max-width:420px;padding:11px 14px;border-radius:10px;background:#16212f;border:1px solid var(--line2);box-shadow:0 10px 30px #0008;opacity:0;transform:translateY(10px);transition:.25s;pointer-events:none;z-index:9}
+.toast.show{opacity:1;transform:none}
+.toast.err{border-color:#7a2633;background:#2a0d12}
+.hash{font-family:var(--mono);font-size:11px;color:var(--muted);word-break:break-all}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:11.5px;border:1px solid var(--line2);border-radius:999px;padding:2px 8px;color:var(--muted)}
+footer{margin-top:16px;color:var(--dim);font-size:12px}
+@media (max-width:1100px){.status,.flowwrap,.three,.two{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){main{padding:12px}.scen{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div class="brand">
+      <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4fd1c5" stroke-width="2"><path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5z"/><path d="M4 12h5l2-3 2 6 2-3h5"/></svg></div>
+      <div><h1>TripWire</h1><p>Policy-enforced communication boundary for AI agents · local simulation</p></div>
+    </div>
+    <div class="row">
+      <span id="profilePill" class="pill"></span>
+      <span id="modePill" class="pill"><span class="dot"></span><span>…</span></span>
+      <button id="resetBtn" class="small" title="Clear traffic, metrics, outbox and audit. Firewall mode is preserved.">Reset demo</button>
+    </div>
+  </div>
+
+  <div id="baselineBanner" class="banner"><b>INSECURE BASELINE PROFILE.</b> The gateway is skipping authentication, route, replay, freshness, sequence and strict-payload checks so you can see what attacks do without TripWire. The firewall still applies. Switch back to <b>strict</b> to restore enforcement.</div>
+  <div id="lockBanner" class="banner"></div>
+
+  <!-- status row -->
+  <section class="grid status">
+    <div class="card">
+      <header><h2>Firewall</h2><span id="fwAuto" class="tag"></span></header>
+      <div id="fwMode" class="big">…</div>
+      <div id="fwReason" class="muted" style="min-height:20px"></div>
+      <div class="row" style="margin-top:10px">
+        <button id="btnBlock" class="warn">Engage kill switch</button>
+        <button id="btnRelease">Release</button>
+        <button id="btnLock" class="danger">Emergency lockdown</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <input id="recCode" class="mono" placeholder="recovery code (see terminal)" autocomplete="off" style="flex:1;min-width:140px">
+        <button id="btnRecover" class="primary">Recover</button>
+      </div>
+    </div>
+    <div class="card">
+      <header><h2>Risk score · Agent 1</h2><span class="tag" title="Heuristic severity index, not a probability">0-100 index</span></header>
+      <div class="row" style="justify-content:space-between"><span id="riskVal" class="big">0</span><span class="muted">threshold <b id="thrVal">70</b></span></div>
+      <div class="meter"><i id="riskBar"></i><b id="thrMark"></b></div>
+      <div class="row"><input id="thrInput" type="number" min="1" max="100" step="1" style="width:80px"><button id="btnThr" class="small">Set threshold</button></div>
+      <div id="incident" class="muted" style="margin-top:6px;font-size:12px"></div>
+    </div>
+    <div class="card">
+      <header><h2>Intrusion pressure</h2><label class="row muted" style="font-size:12px"><input id="autoLock" type="checkbox"> auto-lockdown</label></header>
+      <div class="row" style="justify-content:space-between"><span id="pVal" class="big">0</span><span class="muted">lockdown at <b id="pThr">200</b></span></div>
+      <div class="meter"><i id="pBar"></i></div>
+      <div class="muted" style="font-size:12px">Each rejection adds its severity weight; decays with a 120 s half-life. Crossing the line triggers automatic LOCKDOWN.</div>
+    </div>
+    <div class="card">
+      <header><h2>Security metrics</h2><span class="muted" style="font-size:12px">derived from real decisions</span></header>
+      <div class="kpis" id="kpis"></div>
+    </div>
+  </section>
+
+  <!-- flow -->
+  <section class="grid flowwrap" style="margin-top:14px">
+    <div class="card">
+      <header><h2>Agent communication path</h2><span class="muted" style="font-size:12px">every arrow passes through the gateway</span></header>
+      <svg id="flow" viewBox="0 0 900 250" width="100%" role="img" aria-label="Message flow diagram">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#4c6178"/></marker>
+        </defs>
+        <path id="e-mg" class="edge" d="M170 70 H330" marker-end="url(#ah)"/>
+        <path id="e-gv" class="edge" d="M470 60 H620" marker-end="url(#ah)"/>
+        <path id="e-vg" class="edge" d="M620 92 H470" marker-end="url(#ah)"/>
+        <path id="e-ge" class="edge" d="M400 110 V170 H620" marker-end="url(#ah)"/>
+        <path id="e-ag" class="edge" d="M170 200 H300 Q330 200 350 112" marker-end="url(#ah)"/>
+        <g id="n-mon" class="node"><rect x="20" y="40" width="150" height="62" rx="10"/><text x="95" y="66" text-anchor="middle" fill="#e7eef6" font-size="14" font-weight="600">Agent 1 · Monitor</text><text id="t-mon" x="95" y="86" text-anchor="middle" fill="#8193a8" font-size="11.5">sender</text></g>
+        <g id="n-gw" class="node"><rect x="330" y="30" width="140" height="82" rx="12"/><text x="400" y="58" text-anchor="middle" fill="#4fd1c5" font-size="14" font-weight="700">GATEWAY</text><text id="t-gw" x="400" y="78" text-anchor="middle" fill="#8193a8" font-size="11.5">policy enforcement</text><text id="t-gw2" x="400" y="96" text-anchor="middle" fill="#8193a8" font-size="11.5"></text></g>
+        <g id="n-val" class="node"><rect x="620" y="40" width="160" height="62" rx="10"/><text x="700" y="66" text-anchor="middle" fill="#e7eef6" font-size="14" font-weight="600">Agent 2 · Validator</text><text id="t-val" x="700" y="86" text-anchor="middle" fill="#8193a8" font-size="11.5">receiver</text></g>
+        <g id="n-mail" class="node"><rect x="620" y="140" width="160" height="62" rx="10"/><text x="700" y="166" text-anchor="middle" fill="#e7eef6" font-size="14" font-weight="600">Email action</text><text id="t-mail" x="700" y="186" text-anchor="middle" fill="#8193a8" font-size="11.5">mock outbox</text></g>
+        <g id="n-adv" class="node"><rect x="20" y="170" width="150" height="62" rx="10"/><text x="95" y="196" text-anchor="middle" fill="#ff8a96" font-size="14" font-weight="600">Agent 3 · Adversary</text><text id="t-adv" x="95" y="216" text-anchor="middle" fill="#8193a8" font-size="11.5">idle</text></g>
+        <text x="250" y="62" text-anchor="middle" fill="#5c6d82" font-size="11">telemetry / alert</text>
+        <text x="545" y="52" text-anchor="middle" fill="#5c6d82" font-size="11">verified only</text>
+        <text x="545" y="108" text-anchor="middle" fill="#5c6d82" font-size="11">action request</text>
+        <text x="510" y="164" text-anchor="middle" fill="#5c6d82" font-size="11">authorised action</text>
+      </svg>
+    </div>
+    <div class="card">
+      <header><h2>Last gateway decision</h2><span id="lastBadge"></span></header>
+      <div id="lastText" class="last">No traffic yet. Use the controls below or the guided demo.</div>
+    </div>
+  </section>
+
+  <!-- controls -->
+  <section class="grid three" style="margin-top:14px">
+    <div class="card">
+      <header><h2>Agent 1 controls</h2></header>
+      <div class="muted" style="font-size:12px;margin-bottom:6px">Deterministic event streams (same scores every run)</div>
+      <div class="row">
+        <button id="stBase">Step <b>baseline</b> <span id="stBasePos" class="dim"></span></button>
+        <button id="stInc" class="primary">Step <b>incident</b> <span id="stIncPos" class="dim"></span></button>
+        <button id="stReset" class="small">Rewind</button>
+      </div>
+      <div class="muted" style="font-size:12px;margin:10px 0 6px">Inject a single event</div>
+      <div class="row"><select id="evSel"></select><button id="evBtn">Send event</button></div>
+      <div class="muted" style="font-size:12px;margin:10px 0 6px">Report an explicit score (below / at / above threshold)</div>
+      <div class="row"><input id="scoreIn" type="range" min="0" max="100" value="70" style="flex:1"><span id="scoreLbl" class="mono" style="width:32px">70</span><button id="scoreBtn">Report</button></div>
+      <div class="row" style="margin-top:10px"><button id="alertBtn" class="warn" title="Agent 1 explicitly attempts the protected alert/email workflow">Attempt protected alert</button></div>
+    </div>
+    <div class="card">
+      <header><h2>Attack lab · Agent 3</h2>
+        <div class="row"><button id="seqBtn" class="danger small">Run full sequence</button><button id="stopBtn" class="small">Stop</button></div></header>
+      <div id="seqStatus" class="muted" style="font-size:12px;margin-bottom:8px">Attacker idle. All attacks are local and bounded; they use the same gateway path as real agents.</div>
+      <div class="scen" id="scen"></div>
+    </div>
+    <div class="card">
+      <header><h2>Guided demo</h2><button id="demoNext" class="primary small">Run next step</button></header>
+      <div class="steps" id="steps"></div>
+    </div>
+  </section>
+
+  <!-- feeds -->
+  <section class="grid two" style="margin-top:14px">
+    <div class="card">
+      <header><h2>Gateway decisions</h2><span class="muted" style="font-size:12px"><span style="color:var(--green)">▍</span>legit <span style="color:var(--red)">▍</span>attack</span></header>
+      <div class="list"><table><thead><tr><th>#</th><th>Type / sender</th><th>Decision</th><th>Reason</th></tr></thead><tbody id="feed"></tbody></table></div>
+    </div>
+    <div class="card">
+      <header><h2>Email outbox (simulated)</h2><span id="outboxCount" class="muted" style="font-size:12px"></span></header>
+      <div class="list"><table><thead><tr><th>ID</th><th>Status</th><th>To / subject</th><th>Correlation · reason</th></tr></thead><tbody id="outbox"></tbody></table></div>
+    </div>
+  </section>
+
+  <section class="grid two" style="margin-top:14px">
+    <div class="card">
+      <header><h2>Attack results</h2><span id="atkSummary" class="muted" style="font-size:12px"></span></header>
+      <div class="list"><table><thead><tr><th>Scenario</th><th>Outcome</th><th>Code</th><th>Detail</th></tr></thead><tbody id="atk"></tbody></table></div>
+    </div>
+    <div class="card">
+      <header><h2>Audit timeline</h2>
+        <div class="row"><button id="verifyBtn" class="small primary">Verify chain</button><button id="tamperBtn" class="small danger" title="Simulate an intruder editing an old record without the audit key">Tamper a record</button></div></header>
+      <div id="auditHead" class="hash" style="margin-bottom:6px"></div>
+      <div class="list"><table><thead><tr><th>Seq</th><th>Time</th><th>Event</th></tr></thead><tbody id="audit"></tbody></table></div>
+    </div>
+  </section>
+
+  <div class="card" style="margin-top:14px">
+    <header><h2>Gateway profile (for comparison)</h2></header>
+    <div class="row">
+      <button id="profStrict" class="primary">Strict (default, enforcing)</button>
+      <button id="profBase" class="danger">Baseline (insecure, for comparison)</button>
+      <span class="muted" style="font-size:12.5px">Run the same attacks in both profiles to see what the checks prevent.</span>
+    </div>
+  </div>
+
+  <footer>
+    TripWire is an application-level simulation: no OS firewall rules are changed, no real email is sent, and the adversary only targets this process.
+    HMAC keys protect integrity and origin towards the gateway; there is no transport encryption or non-repudiation. A stolen agent key used for an in-policy message cannot be distinguished from the real agent. See README "Limitations".
+    <div id="paths" class="mono" style="margin-top:6px"></div>
+  </footer>
+</main>
+<div id="toast" class="toast"></div>
+
 <script>
-const $=id=>document.getElementById(id);let busy=false;
-async function api(path,body={}){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.error||'Request failed');if(d.state)render(d.state);if(d.result)flash(d.result.status,d.result.detail);return d}
-function safe(el,text){el.textContent=text}
-function render(s){$('mFirewall').textContent=s.firewall?'ON':'OFF';$('mThreshold').textContent=Number(s.threshold).toLocaleString();$('mAccepted').textContent=s.accepted;$('mRejected').textContent=s.rejected;$('mAlerts').textContent=s.alerts;$('firewall').checked=s.firewall;$('threshold').value=s.threshold;$('fwText').textContent=s.firewall?'ENGAGED · Incoming messages blocked':'DISABLED · Traffic permitted';$('fwText').classList.toggle('on',s.firewall);$('systemText').textContent=s.firewall?'FIREWALL ENGAGED':'SYSTEM ONLINE';$('systemDot').style.background=s.firewall?'var(--red)':'var(--green)';$('relayState').textContent=s.firewall?'BLOCKING':'READY';$('relayDot').style.background=s.firewall?'var(--red)':'var(--green)';$('sendBtn').disabled=busy;$('flowState').textContent=s.firewall?'PROCESSING BLOCKED':'CHANNEL READY';$('flowState').style.color=s.firewall?'var(--red)':'var(--green)';const feed=$('feed');feed.replaceChildren();if(!s.feed.length)feed.innerHTML='<div class="empty">No messages yet. Send a telemetry reading to begin.</div>';s.feed.forEach(x=>{const row=document.createElement('div');row.className='entry';const time=document.createElement('time');time.textContent=new Date(x.time*1000).toLocaleTimeString();const info=document.createElement('div');const title=document.createElement('strong');title.textContent=x.sender+' · '+x.metric+'='+x.value;const detail=document.createElement('div');detail.className='minor';detail.textContent=x.kind==='telemetry'?x.detail:x.kind+' · '+x.detail;info.append(title,detail);const tag=document.createElement('span');tag.className='tag '+x.status;tag.textContent=x.status;row.append(time,info,tag);feed.append(row)});const alerts=$('alerts');alerts.replaceChildren();if(!s.alert_items.length)alerts.innerHTML='<div class="empty">No threshold crossings detected.</div>';s.alert_items.forEach(x=>{const box=document.createElement('div');box.className='alert-item';const strong=document.createElement('b');strong.textContent='THRESHOLD CROSSED';const desc=document.createElement('div');desc.textContent=x.metric+' reported '+x.value+' (limit '+x.threshold+')';const id=document.createElement('div');id.className='minor';id.textContent='Message '+x.message_id.slice(0,12)+'… · '+new Date(x.time*1000).toLocaleTimeString();box.append(strong,desc,id);alerts.append(box)});$('feedCount').textContent=s.feed.length+' EVENTS'}
-let toastTimer;function toast(t){const el=$('toast');el.textContent=t;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2600)}function flash(status,detail){$('flowState').textContent=status+' · '+detail;$('flowState').style.color=status==='ALERT'?'var(--amber)':status==='REJECTED'?'var(--red)':status==='BLOCKED'?'#c49cff':'var(--green)'}function guard(p){return p.catch(e=>toast(e.message))}
-$('sendBtn').onclick=()=>guard(api('/api/telemetry',{metric:$('metric').value,value:Number($('value').value)}));$('saveThreshold').onclick=()=>guard(api('/api/threshold',{threshold:Number($('threshold').value)}).then(()=>toast('Threshold updated')));$('firewall').onchange=e=>guard(api('/api/firewall',{enabled:e.target.checked}));document.querySelectorAll('[data-attack]').forEach(b=>b.onclick=()=>guard(api('/api/attack/'+b.dataset.attack)));$('attackSuite').onclick=()=>guard(api('/api/attack-suite').then(()=>toast('Attack suite completed')));$('reset').onclick=()=>guard(api('/api/reset').then(()=>toast('Demo session reset')));fetch('/api/state').then(r=>r.json()).then(render).catch(()=>toast('Could not connect to local API'));setInterval(()=>fetch('/api/state').then(r=>r.json()).then(render).catch(()=>{}),2500);
-</script></body></html>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const tm = (t) => t ? new Date(t * 1000).toLocaleTimeString([], {hour12:false}) : "";
+let S = null, busy = false, lastSeqSeen = 0;
+
+function toast(msg, err) {
+  const t = $("toast"); t.textContent = msg; t.className = "toast show" + (err ? " err" : "");
+  clearTimeout(toast.h); toast.h = setTimeout(() => t.className = "toast", err ? 4200 : 2600);
+}
+
+async function api(path, body) {
+  const opt = body === undefined ? {} : {method:"POST", headers:{"Content-Type":"application/json","X-TripWire-Client":"dashboard"}, body:JSON.stringify(body)};
+  const r = await fetch(path, opt);
+  let data = {};
+  try { data = await r.json(); } catch (e) { throw new Error("server returned non-JSON (" + r.status + ")"); }
+  if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+  if (data.state) render(data.state);
+  return data;
+}
+
+async function act(path, body, okMsg) {
+  if (busy) return null;
+  busy = true; document.body.style.cursor = "progress";
+  try {
+    const d = await api(path, body || {});
+    if (okMsg) toast(typeof okMsg === "function" ? okMsg(d) : okMsg);
+    return d;
+  } catch (e) { toast(e.message, true); return null; }
+  finally { busy = false; document.body.style.cursor = ""; }
+}
+
+function decisionText(d, nested) {
+  if (!d) return "";
+  let s = `#${d.seq} ${d.message_type}\n${d.sender_id} -> ${d.receiver_id}\n${d.outcome}  ${d.code}\n${d.reason}`;
+  if (d.would_fail) s += `\n(would also fail: ${d.would_fail})`;
+  if (d.handled) s += `\nreceiver: ${d.handled}`;
+  if (d.action) s += `\n\n  -> ${decisionText(d.action, true).split("\n").join("\n     ")}`;
+  if (!nested) s += `\ncorrelation ${d.correlation_id} · ${d.latency_ms} ms · origin ${d.origin}`;
+  return s;
+}
+
+function setEdge(id, cls) { const e = $(id); e.setAttribute("class", "edge" + (cls ? " " + cls + " anim" : "")); }
+function cls(o) { return o === "ACCEPTED" ? "ok" : o === "BLOCKED" ? "blk" : "no"; }
+
+function renderFlow(s) {
+  ["e-mg","e-gv","e-vg","e-ge","e-ag"].forEach((e) => setEdge(e, ""));
+  const d = s.feed[0];
+  const iso = s.firewall.mode !== "NORMAL";
+  $("n-mon").setAttribute("class", "node" + (iso ? " iso" : " on"));
+  $("n-val").setAttribute("class", "node" + (iso ? " iso" : " on"));
+  $("n-adv").setAttribute("class", "node" + (s.agents.adversary.state === "attacking" ? " bad" : ""));
+  $("n-gw").setAttribute("class", "node " + (s.firewall.mode === "LOCKDOWN" ? "bad" : iso ? "iso" : "on"));
+  $("t-mon").textContent = `score ${s.agents.monitor.score} · ${s.agents.monitor.state}`;
+  $("t-val").textContent = `${s.agents.validator.handled} handled · ${s.agents.validator.state}`;
+  $("t-adv").textContent = s.agents.adversary.state === "attacking" ? `running ${s.agents.adversary.run.current || ""}` : "idle · unregistered";
+  $("t-mail").textContent = `${s.metrics.emails_delivered} simulated deliveries`;
+  $("t-gw").textContent = s.profile === "strict" ? "strict · default-deny" : "BASELINE (insecure)";
+  $("t-gw2").textContent = s.firewall.mode;
+  if (!d) return;
+  const fromAttack = (d.origin || "").startsWith("attack:");
+  setEdge(fromAttack ? "e-ag" : "e-mg", cls(d.outcome));
+  if (d.outcome === "ACCEPTED") {
+    if (d.message_type === "action.email.send") setEdge("e-ge", d.email ? "ok" : "no");
+    else setEdge("e-gv", d.code === "VALIDATOR_REFUSED" ? "no" : "ok");
+    if (d.action) { setEdge("e-vg", cls(d.action.outcome)); setEdge("e-ge", d.action.email ? "ok" : cls(d.action.outcome === "ACCEPTED" ? "REJECTED" : d.action.outcome)); }
+  }
+}
+
+function kpi(label, val, tone) { return `<div class="kpi ${tone || ""}"><b>${esc(val)}</b><span>${esc(label)}</span></div>`; }
+
+function render(s) {
+  S = s;
+  const fw = s.firewall, m = s.metrics;
+  // header + banners
+  const mp = $("modePill"); mp.className = "pill m-" + fw.mode; mp.lastElementChild.textContent = "FIREWALL " + fw.mode;
+  const pp = $("profilePill"); pp.textContent = "profile: " + s.profile; pp.className = "pill " + (s.profile === "strict" ? "m-NORMAL" : "m-LOCKDOWN");
+  $("baselineBanner").classList.toggle("show", s.profile !== "strict");
+  const lb = $("lockBanner");
+  lb.classList.toggle("show", fw.mode === "LOCKDOWN");
+  if (fw.mode === "LOCKDOWN") lb.innerHTML = `<b>LOCKDOWN${fw.automatic ? " (automatic)" : " (manual)"}.</b> ${esc(fw.reason)}. All agent traffic and email actions are denied until an operator enters the recovery code printed in the server terminal.`;
+  // firewall card
+  $("fwMode").textContent = fw.mode; $("fwMode").style.color = {NORMAL:"var(--green)",BLOCKING:"var(--amber)",LOCKDOWN:"var(--red)"}[fw.mode];
+  $("fwReason").textContent = `${fw.reason} · by ${fw.actor} · ${tm(fw.since)}`;
+  $("fwAuto").textContent = fw.automatic ? "automatic" : "manual";
+  $("btnBlock").disabled = fw.mode !== "NORMAL"; $("btnRelease").disabled = fw.mode !== "BLOCKING";
+  $("btnLock").disabled = fw.mode === "LOCKDOWN"; $("btnRecover").disabled = fw.mode === "NORMAL";
+  // risk
+  const score = s.agents.monitor.score, thr = s.threshold;
+  $("riskVal").textContent = score; $("riskVal").style.color = score >= thr ? "var(--red)" : score >= thr * .7 ? "var(--amber)" : "var(--green)";
+  $("thrVal").textContent = thr; $("riskBar").style.width = score + "%";
+  $("riskBar").style.background = score >= thr ? "var(--red)" : "var(--cyan)"; $("thrMark").style.left = thr + "%";
+  if (document.activeElement !== $("thrInput")) $("thrInput").value = thr;
+  $("incident").textContent = s.agents.monitor.incident ? `open incident ${s.agents.monitor.incident} · ${s.agents.monitor.status}` : s.agents.monitor.status;
+  // pressure
+  const p = s.pressure; $("pVal").textContent = p.value; $("pThr").textContent = p.threshold;
+  $("pBar").style.width = Math.min(100, p.value / p.threshold * 100) + "%";
+  $("pBar").style.background = p.value / p.threshold > .75 ? "var(--red)" : p.value / p.threshold > .4 ? "var(--amber)" : "var(--cyan)";
+  $("autoLock").checked = p.auto_lockdown;
+  // kpis
+  $("kpis").innerHTML = [
+    kpi("messages", m.messages), kpi("accepted", m.accepted, "good"), kpi("rejected", m.rejected), kpi("blocked (firewall)", m.blocked),
+    kpi("attack msgs", m.attack_attempts), kpi("attacks stopped", m.attack_attempts ? `${m.attack_stopped}/${m.attack_attempts}` : "-", "good"),
+    kpi("unauthorized emails", m.unauthorized_emails, m.unauthorized_emails ? "bad" : "good"), kpi("emails simulated", m.emails_delivered),
+  ].join("");
+  // flow + last
+  renderFlow(s);
+  const d = s.feed[0];
+  $("lastText").textContent = d ? decisionText(d) : "No traffic yet. Use the controls below or the guided demo.";
+  $("lastBadge").innerHTML = d ? `<span class="badge b-${esc(d.outcome)}">${esc(d.outcome)}</span>` : "";
+  // streams
+  $("stBasePos").textContent = `${s.streams.baseline.pos}/${s.streams.baseline.events.length}`;
+  $("stIncPos").textContent = `${s.streams.incident.pos}/${s.streams.incident.events.length}`;
+  if (!$("evSel").options.length) $("evSel").innerHTML = Object.entries(s.events).map(([k, w]) => `<option value="${esc(k)}">${esc(k)} (+${w})</option>`).join("");
+  // scenarios
+  if (!$("scen").children.length) {
+    $("scen").innerHTML = s.scenarios.map((x) => `<div class="sc"><div class="row" style="justify-content:space-between"><span class="t">${esc(x.title)}</span><span class="tag ${esc(x.threat_model)}">${esc(x.threat_model)}</span></div><div class="d">${esc(x.description)}</div><div class="row" style="justify-content:space-between"><span class="mono dim" style="font-size:11px">expect ${esc(x.expected)}</span><button class="small" data-atk="${esc(x.id)}">Launch</button></div></div>`).join("");
+  }
+  const run = s.agents.adversary.run;
+  $("seqBtn").disabled = run.running; $("stopBtn").disabled = !run.running;
+  $("seqStatus").textContent = run.running ? `Sequence running: ${run.done}/${run.total} scenarios · now ${run.current || "…"}`
+    : run.finished_at ? `Last sequence ${run.stopped ? "stopped" : "finished"}: ${run.done}/${run.total} scenarios${run.lockdown_after_s != null ? ` · auto-LOCKDOWN after ${run.lockdown_after_s}s` : ""}.`
+    : "Attacker idle. All attacks are local and bounded; they use the same gateway path as real agents.";
+  // feed
+  $("feed").innerHTML = s.feed.map((x) => {
+    const a = (x.origin || "").startsWith("attack:");
+    const sub = x.action ? `<div class="dim mono" style="font-size:11px">-> ${esc(x.action.message_type)} <span class="badge b-${esc(x.action.outcome)}">${esc(x.action.code)}</span>${x.action.email ? " mail " + esc(x.action.email.id) : ""}</div>` : "";
+    return `<tr class="${a ? "atk" : "leg"}"><td class="mono dim">${x.seq}</td><td><div class="mono" style="font-size:12px">${esc(x.message_type)}</div><div class="dim" style="font-size:11px">${esc(x.sender_id)}${a ? " · " + esc(x.origin) : ""}</div></td><td><span class="badge b-${esc(x.outcome)}">${esc(x.outcome)}</span><div class="mono dim" style="font-size:11px">${esc(x.code)}</div></td><td style="font-size:12px">${esc(x.reason)}${x.would_fail ? `<div class="dim">would also fail: ${esc(x.would_fail)}</div>` : ""}${x.handled ? `<div class="dim">${esc(x.handled)}</div>` : ""}${sub}</td></tr>`;
+  }).join("") || `<tr><td colspan="4" class="dim">No decisions yet.</td></tr>`;
+  // outbox
+  $("outboxCount").textContent = `${m.emails_delivered} simulated deliveries · ${m.email_denied} denied attempts · file lines ${m.outbox_file_deliveries}`;
+  $("outbox").innerHTML = s.outbox.map((r) => `<tr><td class="mono dim">${esc(r.id)}</td><td><span class="badge b-${esc(r.status)}">${esc(r.status === "SIMULATED_DELIVERY" ? "SIMULATED" : r.status)}</span></td><td style="font-size:12px">${r.to.length ? `<div class="mono" style="color:${r.to.some((t) => t.includes("attacker")) ? "var(--red)" : "inherit"}">${esc(r.to.join(", "))}</div>` : ""}<div class="dim">${esc(r.subject)}</div></td><td style="font-size:12px"><div class="mono dim">${esc(r.correlation_id)}</div>${esc(r.code ? r.code + ": " : "")}${esc(r.reason)}</td></tr>`).join("") || `<tr><td colspan="4" class="dim">Outbox empty. Nothing has been sent (or attempted).</td></tr>`;
+  // attacks
+  $("atkSummary").textContent = m.attack_attempts ? `${m.attack_detected} identified by a specific check · ${m.attack_blocked} blocked by firewall · ${m.attack_passed} passed gateway` : "";
+  $("atk").innerHTML = s.attack_log.map((r) => `<tr><td style="font-size:12px">${esc(r.scenario)}</td><td><span class="badge b-${esc(r.outcome)}">${esc(r.outcome)}</span></td><td class="mono" style="font-size:11.5px">${esc(r.code)}${r.would_fail ? `<div class="dim">+${esc(r.would_fail)}</div>` : ""}</td><td style="font-size:12px">${esc(r.reason)}${r.email ? ' <b style="color:var(--red)">EMAIL SENT</b>' : ""}</td></tr>`).join("") || `<tr><td colspan="4" class="dim">No attacks launched.</td></tr>`;
+  // audit
+  $("auditHead").textContent = `${s.audit_count} entries · head ${s.audit_head}`;
+  $("audit").innerHTML = s.audit.map((e) => `<tr><td class="mono dim">${e.seq}</td><td class="mono dim" style="font-size:11px">${tm(e.ts)}</td><td style="font-size:12px"><span class="mono">${esc(e.kind)}</span> <span class="dim">${esc(summ(e))}</span></td></tr>`).join("");
+  $("paths").textContent = `outbox: ${s.paths.outbox}  ·  audit: ${s.paths.audit}`;
+  renderSteps();
+}
+
+function summ(e) {
+  const d = e.data || {};
+  if (e.kind === "gateway.decision") return `${d.type} ${d.sender} -> ${d.outcome} ${d.code}`;
+  if (e.kind === "firewall.transition") return `${d.from_mode} -> ${d.to_mode} (${d.automatic ? "auto" : d.actor}) ${d.reason}`;
+  if (e.kind === "email.delivered") return `${d.mail_id} to ${(d.to || []).join(", ")} [simulated]`;
+  return JSON.stringify(d).slice(0, 110);
+}
+
+// ------------------------------------------------------------------ guided demo
+const STEPS = [
+  {t:"Fresh start", d:"Reset traffic, rewind streams, strict profile.", run: async () => {
+    if (S.firewall.mode !== "NORMAL") throw new Error("Firewall is " + S.firewall.mode + ". Release or recover first.");
+    await api("/api/reset", {}); await api("/api/profile", {profile:"strict"}); await api("/api/stream/reset", {});
+    await api("/api/auto-lockdown", {enabled:true}); }},
+  {t:"Normal communication", d:"Agent 1 sends 3 baseline events; all accepted, no email.", run: async () => { for (let i = 0; i < 3; i++) await api("/api/stream/step", {stream:"baseline"}); }},
+  {t:"Cross the threshold", d:"Incident stream: score climbs past 70, the alert is validated and one simulated email is delivered.", run: async () => {
+    await api("/api/stream/reset", {}); for (let i = 0; i < 5; i++) await api("/api/stream/step", {stream:"incident"}); }},
+  {t:"Attack the channel", d:"Tampering + forged sender. Both rejected with BAD_MAC; outbox unchanged.", run: async () => { await api("/api/attack/tamper", {}); await api("/api/attack/forged_sender", {}); }},
+  {t:"Engage kill switch", d:"Operator turns the firewall to BLOCKING (backend state).", run: async () => { await api("/api/firewall", {mode:"BLOCKING"}); }},
+  {t:"Protected action while blocked", d:"Agent 1 attempts the alert again. BLOCKED; no email is written.", run: async () => { await api("/api/alert", {}); }},
+  {t:"Full attack sequence", d:"Release, then run all 10 scenarios. Pressure builds until automatic LOCKDOWN.", run: async () => {
+    await api("/api/firewall", {mode:"NORMAL"}); await api("/api/attack-suite", {}); }},
+  {t:"Verify the audit trail", d:"Recompute the HMAC chain over every recorded decision.", run: async () => { const r = await api("/api/audit/verify", {}); return r.verify.ok ? `Audit chain OK: ${r.verify.checked} entries verified` : `TAMPERING DETECTED at #${r.verify.broken_at}`; }},
+  {t:"Authorized recovery", d:"Enter the recovery code from the terminal in the Firewall card and press Recover.", run: async () => {
+    const c = $("recCode").value.trim(); if (!c) { $("recCode").focus(); throw new Error("Type the recovery code from the server terminal first."); }
+    await api("/api/recover", {code:c}); $("recCode").value = ""; }},
+];
+let stepIdx = 0;
+function renderSteps() {
+  $("steps").innerHTML = STEPS.map((s, i) => `<div class="step ${i < stepIdx ? "done" : i === stepIdx ? "cur" : ""}"><span class="n">${i < stepIdx ? "✓" : i + 1}</span><div><b style="font-size:13px">${esc(s.t)}</b><small>${esc(s.d)}</small></div><button class="small" data-step="${i}">Run</button></div>`).join("");
+  $("demoNext").textContent = stepIdx >= STEPS.length ? "Restart demo" : `Run step ${stepIdx + 1}`;
+}
+async function runStep(i) {
+  if (busy) return; busy = true;
+  try { const msg = await STEPS[i].run(); stepIdx = i + 1; toast(msg || `Step ${i + 1} done: ${STEPS[i].t}`, msg && msg.startsWith("TAMPER")); }
+  catch (e) { toast(e.message, true); }
+  finally { busy = false; await refresh(); }
+}
+
+// ------------------------------------------------------------------ wiring
+async function refresh() { try { render(await api("/api/state")); } catch (e) { $("lastText").textContent = "Cannot reach the TripWire server: " + e.message; } }
+document.addEventListener("click", (ev) => {
+  const b = ev.target.closest("button"); if (!b) return;
+  if (b.dataset.atk) act("/api/attack/" + b.dataset.atk, {}, (d) => `${b.dataset.atk}: ` + (d.results.map((r) => r.code).filter((v, i, a) => a.indexOf(v) === i).join(", ") || "no messages"));
+  if (b.dataset.step) runStep(Number(b.dataset.step));
+});
+$("demoNext").onclick = () => { if (stepIdx >= STEPS.length) stepIdx = 0; runStep(stepIdx); };
+$("resetBtn").onclick = () => act("/api/reset", {}, "Demo reset (firewall mode preserved)").then(() => { stepIdx = 0; renderSteps(); });
+$("btnBlock").onclick = () => act("/api/firewall", {mode:"BLOCKING"}, "Kill switch engaged: BLOCKING");
+$("btnRelease").onclick = () => act("/api/firewall", {mode:"NORMAL"}, "Firewall released: NORMAL");
+$("btnLock").onclick = () => act("/api/firewall", {mode:"LOCKDOWN"}, "Emergency LOCKDOWN");
+$("btnRecover").onclick = () => act("/api/recover", {code:$("recCode").value.trim()}, "Recovered: NORMAL").then((r) => { if (r) $("recCode").value = ""; });
+$("recCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("btnRecover").click(); });
+$("btnThr").onclick = () => act("/api/threshold", {threshold:Number($("thrInput").value)}, "Threshold updated");
+$("autoLock").onchange = (e) => act("/api/auto-lockdown", {enabled:e.target.checked}, e.target.checked ? "Auto-lockdown on" : "Auto-lockdown off");
+$("stBase").onclick = () => act("/api/stream/step", {stream:"baseline"}, (d) => `baseline: ${d.event} -> ${d.decision.outcome}`);
+$("stInc").onclick = () => act("/api/stream/step", {stream:"incident"}, (d) => `incident: ${d.event} -> ${d.decision.message_type} ${d.decision.outcome}`);
+$("stReset").onclick = () => act("/api/stream/reset", {}, "Streams rewound, score reset to 0");
+$("evBtn").onclick = () => act("/api/event", {type:$("evSel").value}, (d) => `${d.decision.message_type}: ${d.decision.outcome}`);
+$("scoreIn").oninput = (e) => $("scoreLbl").textContent = e.target.value;
+$("scoreBtn").onclick = () => act("/api/score", {score:Number($("scoreIn").value)}, (d) => `${d.decision.message_type}: ${d.decision.outcome}${d.decision.action ? " -> " + d.decision.action.code : ""}`);
+$("alertBtn").onclick = () => act("/api/alert", {}, (d) => `alert: ${d.decision.outcome} ${d.decision.code}${d.decision.action ? " -> " + (d.decision.action.email ? "email simulated" : d.decision.action.code) : ""}`);
+$("seqBtn").onclick = () => act("/api/attack-suite", {}, "Attack sequence started");
+$("stopBtn").onclick = () => act("/api/attack/stop", {}, "Attacker stopped");
+$("verifyBtn").onclick = () => act("/api/audit/verify", {}, (d) => d.verify.ok ? `Audit chain OK: ${d.verify.checked} entries verified` : `TAMPERING DETECTED at entry #${d.verify.broken_at}: ${d.verify.why}`);
+$("tamperBtn").onclick = () => act("/api/audit/tamper", {}, (d) => `Intruder edited entry #${d.tampered_seq}. Now press Verify chain.`);
+$("profStrict").onclick = () => act("/api/profile", {profile:"strict"}, "Strict profile: enforcement on");
+$("profBase").onclick = () => act("/api/profile", {profile:"baseline"}, "BASELINE profile: checks disabled for comparison");
+
+refresh();
+setInterval(() => { if (!busy && !document.hidden) refresh(); }, 1000);
+</script>
+</body>
+</html>
