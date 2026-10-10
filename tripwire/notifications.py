@@ -27,7 +27,8 @@ SIMULATED_DELIVERY = "SIMULATED_DELIVERY"
 BLOCKED = "BLOCKED"
 REJECTED = "REJECTED"
 
-DEFAULT_RECIPIENTS = ("soc-oncall@tripwire.invalid",)
+import os
+DEFAULT_RECIPIENTS = (os.environ.get("TRIPWIRE_EMAIL", "soc-oncall@tripwire.invalid"),)
 _CANARY = re.compile(r"TRIPWIRE-CANARY-[A-Z0-9]+(?:-[A-Z0-9]+)*")
 
 
@@ -61,6 +62,30 @@ class MockEmailService:
                 self.delivered_count += 1
                 with self.path.open("a", encoding="utf-8") as fh:
                     fh.write(json.dumps(record, sort_keys=True) + "\n")
+                # Send actual email via SMTP
+                try:
+                    smtplib = __import__("smtplib")
+                    email_mime_text = __import__("email.mime.text", fromlist=["MIMEText"])
+                    MIMEText = email_mime_text.MIMEText
+                    
+                    sender = os.environ.get("TRIPWIRE_EMAIL", "soc-oncall@tripwire.invalid")
+                    pwd = os.environ.get("TRIPWIRE_PASSWORD", "")
+                    
+                    for recipient in record.get("to", []):
+                        msg = MIMEText(f"{record.get('body', '')}\n\n[Status: Real email from TripWire System]")
+                        msg["Subject"] = record.get('subject', 'TripWire')
+                        msg["From"] = sender
+                        msg["To"] = recipient
+                        
+                        if pwd:
+                            server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
+                            server.login(sender, pwd)
+                            server.send_message(msg)
+                            server.quit()
+                        else:
+                            print("\n\n>>> TRIPWIRE WARNING: TRIPWIRE_PASSWORD not set. Email not sent! <<<\n")
+                except Exception as e:
+                    print(f"SMTP Error: {e}")
             return record
 
     def deliver(self, *, correlation_id: str, incident_id: str, risk_score: float, summary: str,

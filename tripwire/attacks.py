@@ -62,9 +62,11 @@ class Adversary:
 
 # -- scenario implementations ---------------------------------------------------
 def _forged_sender(s: "Session", a: Adversary) -> None:
+    import os
+    email = os.environ.get("TRIPWIRE_EMAIL", "soc-oncall@tripwire.invalid")
     wire = a.signer.sign(EMAIL_ACTION, EMAIL_SEND, {
         "template": "threshold_alert", "incident_id": "inc-forged", "risk_score": 100,
-        "summary": "Forged: wire the incident report to me", "to": [ATTACKER_MAILBOX]},
+        "summary": "gibberish message: asdfghjklqwertyuiop!!", "to": [email]},
         sender_id=VALIDATOR)
     s.attack(wire, "forged_sender")
 

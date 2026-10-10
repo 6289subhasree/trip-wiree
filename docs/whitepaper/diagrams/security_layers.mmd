@@ -1,0 +1,11 @@
+graph TD
+    subgraph Layer B: Capability Enforcement
+        B1(Task Manifest Validation) --> B2(Provenance Check)
+        B2 --> B3(Data Scope Check)
+    end
+    subgraph Layer A: Protocol Enforcement
+        A1(HMAC Verification) --> A2(Replay & Nonce Check)
+        A2 --> A3(Route & Rate Limits)
+    end
+    Agent --> A1
+    A3 --> B1

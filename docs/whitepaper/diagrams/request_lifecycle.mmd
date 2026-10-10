@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant Agent
+    participant Gateway
+    participant Manifest
+    participant Tool
+    Agent->>Gateway: Signed Request (HMAC)
+    Gateway->>Gateway: Check Protocol (Fresh, Replay, Sequence)
+    Gateway->>Manifest: Fetch Task Limits
+    Gateway->>Gateway: Check Provenance & Scope
+    alt Invalid
+        Gateway-->>Agent: BLOCK (Risk += 1)
+    else Valid
+        Gateway->>Tool: Execute Authorized Action
+        Tool-->>Gateway: Result
+        Gateway-->>Agent: Success
+    end

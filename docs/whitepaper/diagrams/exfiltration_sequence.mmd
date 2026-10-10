@@ -1,0 +1,7 @@
+sequenceDiagram
+    participant Agent
+    participant Gateway
+    participant Server as attacker.com
+    Agent->>Gateway: Upload(data, "attacker.com")
+    Gateway->>Gateway: Check Destination Allowlist
+    Gateway-->>Agent: DENY (DESTINATION_NOT_ALLOWED)

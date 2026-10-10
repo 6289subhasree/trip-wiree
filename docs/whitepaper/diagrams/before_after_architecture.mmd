@@ -1,0 +1,9 @@
+graph TD
+    subgraph Baseline (Unprotected)
+        U1[Untrusted Input] --> AG1[Agent] --> T1[Tool]
+    end
+    subgraph Protected (TripWire)
+        U2[Untrusted Input] --> AG2[Agent] --> GW2{TripWire Gateway}
+        GW2 -- DENY --> BL2[Blocked]
+        GW2 -- ALLOW --> T2[Tool]
+    end

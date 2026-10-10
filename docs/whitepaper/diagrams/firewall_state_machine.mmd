@@ -1,0 +1,7 @@
+stateDiagram-v2
+    [*] --> NORMAL
+    NORMAL --> BLOCKING : Risk > Threshold
+    BLOCKING --> NORMAL : Decay / Auto-release
+    NORMAL --> LOCKDOWN : Canary Detected / Critical
+    BLOCKING --> LOCKDOWN : Continued Attacks
+    LOCKDOWN --> NORMAL : Manual Recovery Code

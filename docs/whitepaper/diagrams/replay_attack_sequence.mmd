@@ -1,0 +1,6 @@
+sequenceDiagram
+    participant Attacker
+    participant Gateway
+    Attacker->>Gateway: Intercepted Valid Message (Nonce A)
+    Gateway->>Gateway: Check Cache (Nonce A = Seen)
+    Gateway-->>Attacker: DENY (REPLAY)

@@ -1,0 +1,8 @@
+{
+  "total_tests": 214,
+  "passed": 209,
+  "failed": 5,
+  "attack_rejection_rate": 1.0,
+  "false_rejection_rate": 0.0,
+  "environment": "macOS Python 3.11"
+}

@@ -1,0 +1,15 @@
+graph TD
+    subgraph TCB[Trusted Computing Base]
+        GW[Gateway]
+        FW[Firewall]
+        AL[Audit Log]
+    end
+    subgraph Untrusted
+        A1[Agent]
+        Doc[Malicious Document]
+        Att[External Attacker]
+    end
+    Att --> Doc
+    Doc --> A1
+    A1 -- Forged/Injected Request --> GW
+    GW -.-> FW

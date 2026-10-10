@@ -1,0 +1,9 @@
+graph TD
+    UI[Untrusted Input] --> A1[Agent 1: Monitor]
+    A1 --> GW{TripWire Gateway}
+    GW -- Protocol Deny --> BD[Blocked & Audited]
+    GW -- Capability Deny --> BD
+    GW -- Allow --> A2[Agent 2: Validator]
+    GW -- Allow --> TA[Tool Adapters]
+    TA --> Ext[Protected Systems]
+    GW -. Audit Log .-> AL[(Chained Audit Ledger)]
