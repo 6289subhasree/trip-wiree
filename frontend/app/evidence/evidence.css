@@ -1,0 +1,24 @@
+/* Evidence page: ported from tripwire/web. Every rule is scoped under .pg-evidence so pages cannot collide. */
+.pg-evidence .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.pg-evidence .stat{padding:24px}
+.pg-evidence .stat .statbig{margin-top:12px}
+.pg-evidence .stat .muted{font-size:13px;margin-top:6px}
+.pg-evidence .chain{display:flex;gap:0;overflow-x:auto;padding:6px 2px 14px;scrollbar-width:thin}
+.pg-evidence .blk{flex:none;width:170px;padding:16px;border-radius:18px;border:1px solid var(--line);background:var(--card2)}
+.pg-evidence .blk .k{font:600 12.5px var(--mono);margin:6px 0 10px;overflow-wrap:anywhere}
+.pg-evidence .blk .hsh{font:11px var(--mono);color:var(--dim)}
+.pg-evidence .blk .hsh b{color:var(--mint);font-weight:500}
+.pg-evidence .blk.bad{border-color:var(--red);background:var(--redbg)} .pg-evidence .blk.bad .hsh b{color:var(--red)}
+.pg-evidence .lnk{flex:none;width:26px;align-self:center;height:2px;background:var(--line2)}
+.pg-evidence .verdict{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-top:18px}
+.pg-evidence .verdict .statbig{font-size:34px}
+.pg-evidence .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.pg-evidence .list{display:flex;flex-direction:column}
+.pg-evidence .li{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;padding:14px 2px;border-top:1px solid var(--line);font-size:14px}
+.pg-evidence .li:first-child{border-top:none}
+.pg-evidence .li .sub{grid-column:2;color:var(--muted);font-size:13px;overflow-wrap:anywhere}
+.pg-evidence .codes{display:grid;grid-template-columns:repeat(2,1fr);gap:0 28px}
+.pg-evidence .code{display:grid;grid-template-columns:220px 1fr;gap:12px;padding:11px 0;border-top:1px solid var(--line);font-size:13.5px}
+.pg-evidence .code b{font:600 12px var(--mono);color:var(--red)}
+.pg-evidence .tasks{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+@media (max-width:1000px){.pg-evidence .stats{grid-template-columns:repeat(2,1fr)}.pg-evidence .two,.pg-evidence .codes{grid-template-columns:1fr}.pg-evidence .code{grid-template-columns:1fr}}
