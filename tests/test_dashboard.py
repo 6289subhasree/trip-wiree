@@ -1,19 +1,30 @@
 """HTTP API: controls must change real backend state, and errors must be explicit."""
+import inspect
 import json
+import os
+import tempfile
 import threading
 import unittest
 from http.server import ThreadingHTTPServer
+from pathlib import Path
+from unittest import mock
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from tripwire.server import make_handler
+from tripwire import server as server_module
+from tripwire.server import FRONTEND_OUT, PAGES, make_handler
 from tests.helpers import CODE, make_session
 
 
 class DashboardAPITests(unittest.TestCase):
+    # None = no Next.js export: the built-in tripwire/web pages. A local frontend/out build on the
+    # developer's machine must not change what these tests see.
+    frontend_dir = None
+
     def setUp(self):
         self.session = make_session(self, auto_lockdown=False)
-        self.server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(self.session, quiet=True))
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(self.session, quiet=True,
+                                                                         frontend_dir=self.frontend_dir))
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         self.addCleanup(self.server.server_close)
@@ -174,6 +185,121 @@ class DashboardAPITests(unittest.TestCase):
         self.assertEqual([a["role"] for a in (state["agents"]["monitor"], state["agents"]["validator"],
                                               state["agents"]["adversary"])],
                          ["Intake Agent", "Policy Validator", "Red Team"])
+
+
+def write_fake_export(root: Path) -> None:
+    """A stand-in for `npm run build`: four pages plus one hashed chunk of each kind."""
+    for name in set(PAGES.values()):
+        (root / name).write_text(f"<!doctype html><title>TripWire</title><p>next-export:{name}</p>"
+                                 '<script src="/_next/static/chunks/app.js"></script>', encoding="utf-8")
+    chunks = root / "_next" / "static" / "chunks"
+    chunks.mkdir(parents=True)
+    (chunks / "app.js").write_text("console.log('chunk')", encoding="utf-8")
+    (chunks / "app.css").write_text("body{color:#fff}", encoding="utf-8")
+    (chunks / "notes.exe").write_text("not a web asset", encoding="utf-8")
+    (root / "secret.js").write_text("outside _next", encoding="utf-8")
+
+
+class NextExportTests(DashboardAPITests):
+    """With frontend/out present the pages come from it; every API test above is re-run against it."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls._tmp = tempfile.TemporaryDirectory()
+        cls.frontend_dir = Path(cls._tmp.name) / "out"
+        cls.frontend_dir.mkdir()
+        write_fake_export(cls.frontend_dir)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._tmp.cleanup()
+
+    def fetch(self, path):
+        try:
+            with urlopen(self.base + path) as response:
+                return response.status, response.headers, response.read().decode("utf-8")
+        except HTTPError as exc:
+            return exc.code, exc.headers, exc.read().decode("utf-8")
+
+    def test_website_pages_and_assets_are_served_offline_and_text_only(self):
+        for path, name in PAGES.items():
+            status, headers, body = self.fetch(path)
+            self.assertEqual(status, 200, path)
+            self.assertIn("text/html", headers["Content-Type"])
+            self.assertIn("default-src 'self'", headers["Content-Security-Policy"])
+            self.assertIn(f"next-export:{name}", body, path)
+            self.assertNotIn("/static/app.js", body, path)
+        for path, ctype in (("/_next/static/chunks/app.js", "text/javascript"),
+                            ("/_next/static/chunks/app.css", "text/css")):
+            status, headers, _ = self.fetch(path)
+            self.assertEqual(status, 200, path)
+            self.assertIn(ctype, headers["Content-Type"])
+            self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
+
+    def test_export_serving_stays_inside_the_next_directory(self):
+        for missing in ("/_next/../secret.js", "/_next/%2e%2e/secret.js", "/_next/static/../../secret.js",
+                        "/_next/..%5csecret.js", "/_next/static/chunks/notes.exe", "/_next/static/chunks/",
+                        "/_next/static/chunks/nope.js", "/_next//static/chunks/app.js", "/secret.js",
+                        "/demo.html", "/_next/C:/Windows/win.ini"):
+            self.assertEqual(self.fetch(missing)[0], 404, missing)
+
+    def test_console_is_untouched_by_the_export(self):
+        _, _, page = self.fetch("/console")
+        self.assertEqual(page, Path(server_module.__file__).with_name("dashboard.html").read_text(encoding="utf-8"))
+
+
+class FrontendFallbackTests(unittest.TestCase):
+    """The export is optional: missing or half-built, the server keeps serving tripwire/web."""
+
+    def serve(self, frontend_dir):
+        session = make_session(self, auto_lockdown=False)
+        httpd = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(session, quiet=True, frontend_dir=frontend_dir))
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        self.addCleanup(httpd.server_close)
+        self.addCleanup(httpd.shutdown)
+        return f"http://127.0.0.1:{httpd.server_port}"
+
+    def home(self, base):
+        with urlopen(base + "/") as response:
+            return response.read().decode("utf-8")
+
+    def test_default_location_is_frontend_out_at_the_repo_root(self):
+        self.assertEqual(FRONTEND_OUT, Path(server_module.__file__).resolve().parent.parent / "frontend" / "out")
+        self.assertIs(inspect.signature(make_handler).parameters["frontend_dir"].default, FRONTEND_OUT)
+
+    def test_serves_export_when_present_and_falls_back_when_absent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "out"
+            base = self.serve(out)                       # absent
+            self.assertIn('src="/static/app.js"', self.home(base))
+            with self.assertRaises(HTTPError) as ctx:
+                urlopen(base + "/_next/static/chunks/app.js")
+            self.assertEqual(ctx.exception.code, 404)
+
+            out.mkdir()
+            write_fake_export(out)
+            (out / "arena.html").unlink()                # half-built: still the fallback
+            self.assertIn('src="/static/app.js"', self.home(self.serve(out)))
+
+            (out / "arena.html").write_text("<p>next-export:arena.html</p>", encoding="utf-8")
+            base = self.serve(out)                       # present
+            self.assertIn("next-export:index.html", self.home(base))
+            with urlopen(base + "/static/app.css") as response:   # legacy assets stay reachable
+                self.assertEqual(response.status, 200)
+
+    def test_origin_check_has_no_dev_allowance(self):
+        # No environment variable relaxes the same-origin rule: a `next dev` origin is refused.
+        env = {k: "1" for k in ("TRIPWIRE_DEV", "TRIPWIRE_DEV_ORIGIN", "TRIPWIRE_ALLOW_ORIGIN", "NODE_ENV")}
+        with mock.patch.dict(os.environ, env):
+            base = self.serve(None)
+            for origin in ("http://localhost:3000", "http://127.0.0.1:3000"):
+                req = Request(base + "/api/firewall", data=b'{"mode": "BLOCKING"}',
+                              headers={"Content-Type": "application/json", "X-TripWire-Client": "dashboard",
+                                       "Origin": origin})
+                with self.assertRaises(HTTPError) as ctx:
+                    urlopen(req)
+                self.assertEqual(ctx.exception.code, 403, origin)
+        self.assertNotIn("environ", Path(server_module.__file__).read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
