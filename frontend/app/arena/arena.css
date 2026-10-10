@@ -1,0 +1,46 @@
+/* Attack arena page: ported from tripwire/web. Every rule is scoped under .pg-arena so pages cannot collide. */
+.pg-arena .top3{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:16px}
+.pg-arena .fwcard .mode{font:800 clamp(44px,5vw,64px)/1 var(--display);letter-spacing:-.04em;margin:14px 0 8px}
+.pg-arena .fwcard .mode.NORMAL{color:var(--mint)} .pg-arena .fwcard .mode.BLOCKING{color:var(--amber)} .pg-arena .fwcard .mode.LOCKDOWN{color:var(--red)}
+.pg-arena .fwcard .row{margin-top:14px}
+.pg-arena .fwcard .row .in{flex:1}
+.pg-arena .ringcard{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px}
+.pg-arena .ringcard .ring{width:150px;height:150px}
+.pg-arena .ringcard .ring b{font-size:38px}
+.pg-arena .path{display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr 40px 1fr;align-items:center;margin-top:8px}
+.pg-arena .node{padding:18px;border-radius:18px;border:1px solid var(--line);background:var(--card2);min-height:104px;transition:border-color .2s,box-shadow .2s}
+.pg-arena .node .n{font:700 11px var(--mono);letter-spacing:.14em;color:var(--dim)}
+.pg-arena .node h4{margin:6px 0 4px;font:700 17px/1.2 var(--display)}
+.pg-arena .node p{margin:0;font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
+.pg-arena .node.hot{border-color:var(--mint);box-shadow:0 0 0 3px rgba(169,229,203,.08)}
+.pg-arena .node.bad{border-color:var(--red);box-shadow:0 0 0 3px rgba(255,42,61,.10)}
+.pg-arena .node.gw{background:#fff;color:#000;border-color:#fff} .pg-arena .node.gw p,.pg-arena .node.gw .n{color:#555}
+.pg-arena .node.gw.LOCKDOWN{background:var(--red);border-color:var(--red);color:#fff}.pg-arena .node.gw.LOCKDOWN p,.pg-arena .node.gw.LOCKDOWN .n{color:#ffd6da}
+.pg-arena .link{height:2px;background:var(--line2);position:relative}
+.pg-arena .link:after{content:"";position:absolute;right:-1px;top:-4px;border-left:7px solid var(--line2);border-top:5px solid transparent;border-bottom:5px solid transparent}
+.pg-arena .link.ok{background:var(--mint)}.pg-arena .link.ok:after{border-left-color:var(--mint)}
+.pg-arena .link.no{background:var(--red)}.pg-arena .link.no:after{border-left-color:var(--red)}
+.pg-arena .advrow{display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr 40px 1fr;margin-top:12px}
+.pg-arena .advrow .node{grid-column:3}
+.pg-arena .uplink{grid-column:3;justify-self:center;width:2px;height:16px;background:var(--line2)}
+.pg-arena .uplink.no{background:var(--red)}
+.pg-arena .stream{display:grid;grid-template-columns:1fr 1.2fr;gap:24px;align-items:center}
+.pg-arena .bars{width:100%;height:220px}
+.pg-arena .evchips{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
+.pg-arena .evchips .chip{font:12px var(--mono)}
+.pg-arena .evchips .chip.now{background:#fff;color:#000;border-color:#fff}
+.pg-arena .atk{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.pg-arena .ac{padding:18px;display:flex;flex-direction:column;gap:8px;min-height:190px}
+.pg-arena .ac .t{font:700 15px/1.25 var(--display)}
+.pg-arena .ac .d{font-size:12.5px;color:var(--muted);flex:1}
+.pg-arena .ac .res{font:600 11.5px var(--mono)}
+.pg-arena .feed{display:flex;flex-direction:column}
+.pg-arena .fr{display:grid;grid-template-columns:70px 170px 1fr auto;gap:14px;align-items:center;padding:12px 4px;border-top:1px solid var(--line);font-size:13.5px}
+.pg-arena .fr:first-child{border-top:none}
+.pg-arena .fr .mono{font-size:12.5px}
+.pg-arena .fr .why{color:var(--muted);overflow-wrap:anywhere}
+@media (max-width:1100px){.pg-arena .top3,.pg-arena .stream{grid-template-columns:1fr}.pg-arena .atk{grid-template-columns:repeat(2,1fr)}
+  .pg-arena .path,.pg-arena .advrow{grid-template-columns:1fr}.pg-arena .link{width:2px;height:22px;justify-self:center}.pg-arena .link:after{display:none}.pg-arena .advrow .node,.pg-arena .uplink{grid-column:1}
+  .pg-arena .fr{grid-template-columns:1fr;gap:4px}}
+@media (max-width:600px){.pg-arena .atk{grid-template-columns:1fr}}
+.pg-arena .atk>*,.pg-arena .top3>*{min-width:0}
