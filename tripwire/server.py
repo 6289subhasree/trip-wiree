@@ -47,6 +47,15 @@ PAGES = {"/": "index.html", "/index.html": "index.html", "/demo": "demo.html", "
          "/evidence": "evidence.html"}
 STATIC = {"/static/app.css": ("app.css", "text/css; charset=utf-8"),
           "/static/app.js": ("app.js", "text/javascript; charset=utf-8")}
+# Optional Next.js static export (frontend/out, built with `npm run build`). When it is present the
+# four website pages and their /_next/ assets are served from it, on this same origin, so the POST
+# guard below applies unchanged. When it is absent the tripwire/web pages above are served instead.
+FRONTEND_OUT = Path(__file__).resolve().parent.parent / "frontend" / "out"
+NEXT_PREFIX = "/_next/"
+NEXT_TYPES = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
+              ".json": "application/json; charset=utf-8", ".txt": "text/plain; charset=utf-8",
+              ".map": "application/json; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png",
+              ".ico": "image/x-icon", ".woff2": "font/woff2"}
 TASK_PATH = re.compile(r"^/api/tasks/([A-Za-z0-9_-]{1,64})(/document|/timeline|/report|/agent/run|/approval|/inject)?$")
 
 
@@ -220,9 +229,32 @@ def build_routes(s: Session) -> Dict[str, Callable[[Dict[str, Any], str], Any]]:
     }
 
 
-def make_handler(session: Session, quiet: bool = False):
+def frontend_root(frontend_dir: Optional[Path]) -> Optional[Path]:
+    """The Next.js export to serve, or None to fall back to tripwire/web. All four pages must exist."""
+    if frontend_dir is None:
+        return None
+    root = Path(frontend_dir)
+    if all((root / name).is_file() for name in set(PAGES.values())):
+        return root.resolve()
+    return None
+
+
+def next_asset(root: Path, path: str) -> Optional[Path]:
+    """Map a /_next/... URL to a file inside root/_next, or None. Never leaves that directory."""
+    parts = path[len(NEXT_PREFIX):].split("/")
+    if not all(parts) or any(part in (".", "..") or "\\" in part or ":" in part for part in parts):
+        return None
+    base = (root / "_next").resolve()
+    target = base.joinpath(*parts).resolve()
+    if base not in target.parents or target.suffix not in NEXT_TYPES or not target.is_file():
+        return None
+    return target
+
+
+def make_handler(session: Session, quiet: bool = False, frontend_dir: Optional[Path] = FRONTEND_OUT):
     routes = build_routes(session)
     page_path = Path(__file__).with_name("dashboard.html")
+    next_root = frontend_root(frontend_dir)  # decided once, at start-up
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "TripWire/2"
@@ -295,7 +327,13 @@ def make_handler(session: Session, quiet: bool = False):
             elif path == "/favicon.ico":
                 self._send(204, b"", "image/x-icon")
             elif path in PAGES:
-                self._send(200, (WEB_DIR / PAGES[path]).read_bytes(), "text/html; charset=utf-8")
+                self._send(200, ((next_root or WEB_DIR) / PAGES[path]).read_bytes(), "text/html; charset=utf-8")
+            elif next_root is not None and path.startswith(NEXT_PREFIX):
+                asset = next_asset(next_root, path)
+                if asset is None:
+                    self.respond(404, {"error": "not found"})
+                else:
+                    self._send(200, asset.read_bytes(), NEXT_TYPES[asset.suffix])
             elif path == "/console":
                 self._send(200, page_path.read_bytes(), "text/html; charset=utf-8")
             elif path in STATIC:
@@ -339,6 +377,8 @@ def run_server(session: Session, host: str = "127.0.0.1", port: int = 8765, open
     url = f"http://{host}:{server.server_port}"
     print("=" * 64)
     print(f" TripWire security console : {url}")
+    print(f" Website pages             : "
+          f"{'frontend/out (Next.js export)' if frontend_root(FRONTEND_OUT) else 'tripwire/web (built in)'}")
     print(f" Operator recovery code    : {session.recovery_code}   (never shown in the UI)")
     print(f" Simulated outbox          : {session.outbox.path}")
     print(f" Audit log (HMAC chain)    : {session.audit.path}")
