@@ -117,7 +117,7 @@ class DashboardAPITests(unittest.TestCase):
             self.assertIn(b"TripWire", response.read())
 
     def test_dashboard_is_single_file_offline_and_never_builds_html_from_strings(self):
-        with urlopen(self.base + "/") as response:
+        with urlopen(self.base + "/console") as response:
             page = response.read().decode("utf-8")
             csp = response.headers["Content-Security-Policy"]
         self.assertIn("default-src 'self'", csp)
@@ -133,6 +133,37 @@ class DashboardAPITests(unittest.TestCase):
             self.assertIn(needle, page, needle)
         with urlopen(self.base + "/favicon.ico") as response:
             self.assertEqual(response.status, 204)
+
+    def test_website_pages_and_assets_are_served_offline_and_text_only(self):
+        pages = {"/": "Agents can read anything", "/demo": "Hand a hijacked agent a poisoned invoice",
+                 "/arena": "Three agents. One firewall.", "/evidence": "Every decision, on the record."}
+        bodies = []
+        for path, needle in pages.items():
+            with urlopen(self.base + path) as response:
+                self.assertEqual(response.status, 200, path)
+                self.assertIn("text/html", response.headers["Content-Type"])
+                self.assertIn("default-src 'self'", response.headers["Content-Security-Policy"])
+                body = response.read().decode("utf-8")
+            self.assertIn(needle, body, path)
+            # every page shares the same-origin stylesheet and script, nothing external
+            self.assertIn('href="/static/app.css"', body, path)
+            self.assertIn('src="/static/app.js"', body, path)
+            bodies.append(body)
+        for path, ctype in (("/static/app.css", "text/css"), ("/static/app.js", "text/javascript")):
+            with urlopen(self.base + path) as response:
+                self.assertIn(ctype, response.headers["Content-Type"])
+                bodies.append(response.read().decode("utf-8"))
+        import re
+        for body in bodies:
+            self.assertIsNone(re.search(r'(src|href)\s*=\s*"(https?:)?//', body))   # no external loads
+            for needle in ("@import", "url(", "//cdn"):
+                self.assertNotIn(needle, body)
+            for sink in ("innerHTML", "outerHTML", "insertAdjacentHTML", "document.write", "eval("):
+                self.assertNotIn(sink, body, sink)
+        for missing in ("/static/../server.py", "/static/nope.js", "/demo.html"):
+            with self.assertRaises(HTTPError) as ctx:
+                urlopen(self.base + missing)
+            self.assertEqual(ctx.exception.code, 404, missing)
 
     def test_snapshot_feeds_both_modes(self):
         _, state = self.request("/api/state")

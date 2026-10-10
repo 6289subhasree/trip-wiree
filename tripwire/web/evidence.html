@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TripWire · Evidence</title>
+<link rel="stylesheet" href="/static/app.css">
+<style>
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.stat{padding:24px}
+.stat .statbig{margin-top:12px}
+.stat .muted{font-size:13px;margin-top:6px}
+.chain{display:flex;gap:0;overflow-x:auto;padding:6px 2px 14px;scrollbar-width:thin}
+.blk{flex:none;width:170px;padding:16px;border-radius:18px;border:1px solid var(--line);background:var(--card2)}
+.blk .k{font:600 12.5px var(--mono);margin:6px 0 10px;overflow-wrap:anywhere}
+.blk .hsh{font:11px var(--mono);color:var(--dim)}
+.blk .hsh b{color:var(--mint);font-weight:500}
+.blk.bad{border-color:var(--red);background:var(--redbg)} .blk.bad .hsh b{color:var(--red)}
+.lnk{flex:none;width:26px;align-self:center;height:2px;background:var(--line2)}
+.verdict{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-top:18px}
+.verdict .statbig{font-size:34px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.list{display:flex;flex-direction:column}
+.li{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;padding:14px 2px;border-top:1px solid var(--line);font-size:14px}
+.li:first-child{border-top:none}
+.li .sub{grid-column:2;color:var(--muted);font-size:13px;overflow-wrap:anywhere}
+.codes{display:grid;grid-template-columns:repeat(2,1fr);gap:0 28px}
+.code{display:grid;grid-template-columns:220px 1fr;gap:12px;padding:11px 0;border-top:1px solid var(--line);font-size:13.5px}
+.code b{font:600 12px var(--mono);color:var(--red)}
+.tasks{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+@media (max-width:1000px){.stats{grid-template-columns:repeat(2,1fr)}.two,.codes{grid-template-columns:1fr}.code{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+  <div class="wrap">
+    <div class="page-head">
+      <div class="eyebrow">Evidence · auditable proof</div>
+      <h2 class="h2">Every decision, on the record.</h2>
+      <p class="lead">Nothing on this page is typed in by hand. It is read from the gateway's decisions, the lineage log and an HMAC hash-chained audit log that shows exactly where someone edited it.</p>
+    </div>
+
+    <section class="block">
+      <div class="stats" id="stats"></div>
+    </section>
+
+    <section class="block" style="padding-top:0">
+      <div class="sechead"><h3><span class="secnum">1</span>Audit chain</h3>
+        <div class="row"><button class="btn sm primary" id="verify">Verify chain</button><button class="btn sm danger" id="tamper">Simulate an intruder edit</button></div></div>
+      <div class="card pad">
+        <div class="chain" id="chain"></div>
+        <div class="verdict" id="verdict"><span class="muted">Press “Verify chain” to recompute every MAC from the first entry.</span></div>
+        <div class="hash mono dim" id="head" style="font-size:12px;margin-top:14px;overflow-wrap:anywhere"></div>
+      </div>
+    </section>
+
+    <section class="block" style="padding-top:0">
+      <div class="sechead"><h3><span class="secnum">2</span>Task reports</h3><span class="muted" style="font-size:13px">blast radius recomputed from lineage on every request</span></div>
+      <div class="tasks" id="tasks"></div>
+      <div class="two" id="report"></div>
+    </section>
+
+    <section class="block" style="padding-top:0">
+      <div class="two">
+        <div>
+          <div class="sechead"><h3><span class="secnum">3</span>Outbox</h3><span class="tag">simulated</span></div>
+          <div class="card pad"><div class="list" id="outbox"></div></div>
+        </div>
+        <div>
+          <div class="sechead"><h3><span class="secnum">4</span>Audit log</h3><span class="muted" id="count" style="font-size:13px"></span></div>
+          <div class="card pad"><div class="list" id="audit"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" style="padding-top:0">
+      <div class="sechead"><h3><span class="secnum">5</span>What each refusal means</h3></div>
+      <div class="card pad"><div class="codes" id="codes"></div></div>
+    </section>
+
+    <p class="muted" style="font-size:13px;margin:0 0 40px">Prefer the dense operator view? <a href="/console" style="text-decoration:underline">Open the classic console</a>.</p>
+  </div>
+</main>
+<script src="/static/app.js"></script>
+<script>
+"use strict";
+const {h, fill, $, time, pretty, fmtINR} = TW;
+TW.nav("evidence");
+let S = null, sel = null, verdict = null;
+
+async function load() { const st = await TW.api("/api/state"); S = st; TW.setFirewall(st.firewall.mode); render(); }
+
+function stat(label, value, note, cls) {
+  return h("div", {class: "card stat"}, h("div", {class: "label"}, label), h("div", {class: "statbig " + (cls || "")}, String(value)), h("div", {class: "muted"}, note));
+}
+
+function render() {
+  const m = S.metrics;
+  fill("stats",
+    stat("Gateway decisions", m.messages, m.accepted + " accepted · " + m.rejected + " rejected · " + m.blocked + " blocked"),
+    stat("Tool calls", m.tool_requests, m.tool_allowed + " allowed · " + m.tool_blocked + " blocked · " + m.tool_pending + " paused"),
+    stat("Attack messages", m.attack_attempts, m.attack_attempts ? m.attack_stopped + " stopped by the gateway" : "none sent yet"),
+    stat("Unauthorized emails", m.unauthorized_emails, m.emails_delivered + " simulated deliveries in total", m.unauthorized_emails ? "red" : "green"));
+  renderChain(); renderTasks(); renderOutbox(); renderAudit();
+  fill("codes", Object.entries(S.codes).map(([k, v]) => h("div", {class: "code"}, h("b", null, k), h("span", {class: "soft"}, v))));
+}
+
+function renderChain() {
+  const ents = S.audit.slice(0, 7).reverse();
+  const broken = verdict && !verdict.ok ? verdict.broken_at : null;
+  const kids = [];
+  ents.forEach((e, i) => {
+    if (i) kids.push(h("div", {class: "lnk"}));
+    kids.push(h("div", {class: "blk" + (broken === e.seq ? " bad" : "")}, h("div", {class: "label"}, "#" + e.seq + " · " + time(e.ts)),
+      h("div", {class: "k"}, e.kind), h("div", {class: "hsh"}, "prev ", h("b", null, e.prev.slice(0, 10))), h("div", {class: "hsh"}, "mac  ", h("b", null, e.mac.slice(0, 10)))));
+  });
+  fill("chain", kids.length ? kids : h("div", {class: "empty", style: {width: "100%"}}, "No entries yet."));
+  fill("head", "head " + S.audit_head + " · " + S.audit_count + " entries");
+}
+
+function renderTasks() {
+  const ts = S.tasks || [];
+  if (!sel && ts.length) sel = ts[ts.length - 1].task_id;
+  fill("tasks", ts.length ? ts.map((t) => h("button", {class: "btn sm" + (t.task_id === sel ? " primary" : ""), onclick: () => { sel = t.task_id; renderTasks(); }}, t.task_id + " · " + pretty(t.scenario)))
+    : h("div", {class: "empty", style: {width: "100%"}}, "No tasks yet. Run one on the Live demo page."));
+  if (!sel) { fill("report"); return; }
+  TW.api("/api/tasks/" + sel + "/report").then((d) => {
+    const r = d.report;
+    fill("report",
+      h("div", {class: "card pad"}, h("div", {class: "label"}, "Blast radius · " + sel),
+        h("div", {class: "statbig", style: {marginTop: "14px", color: r.severity === "Low" ? "var(--mint)" : "var(--red)"}}, r.severity),
+        h("div", {class: "muted", style: {fontSize: "13px", marginTop: "4px"}}, r.containment + " · attempted " + r.attempted_severity),
+        h("p", {class: "soft", style: {fontSize: "14px"}}, r.summary),
+        h("dl", {class: "kv"},
+          h("dt", null, "Requests"), h("dd", null, r.requests),
+          h("dt", null, "Blocked tools"), h("dd", null, (r.blocked_tools || []).map((x) => x.tool || x).join(", ") || "none"),
+          h("dt", null, "Records protected / exposed"), h("dd", null, r.sensitive_records_protected + " / " + r.sensitive_records_exposed),
+          h("dt", null, "Canaries protected / exposed"), h("dd", null, r.canaries_protected + " / " + r.canaries_exposed),
+          h("dt", null, "Amount at risk"), h("dd", null, fmtINR(r.amount_at_risk_inr)),
+          h("dt", null, "External destinations tried"), h("dd", null, (r.external_destinations_attempted || []).join(", ") || "none"))),
+      h("div", {class: "card pad"}, h("div", {class: "label"}, "How severity is scored"),
+        h("div", {class: "list", style: {marginTop: "10px"}}, (r.rules || []).map((x) => h("div", {class: "li"}, h("span", {class: "red"}, "•"), h("span", null, x)))),
+        h("div", {class: "label", style: {marginTop: "18px"}}, "Violations"),
+        h("div", {class: "pillrow", style: {marginTop: "10px"}}, Object.entries(r.violation_codes || {}).map(([k, v]) => h("span", {class: "chip no"}, h("i"), k + " × " + v)))));
+  }).catch((e) => fill("report", h("div", {class: "empty"}, e.message)));
+}
+
+function renderOutbox() {
+  fill("outbox", S.outbox.length ? S.outbox.slice(0, 12).map((r) => h("div", {class: "li"},
+      h("span", {class: "tag " + (r.status === "SIMULATED_DELIVERY" ? "green" : r.status === "BLOCKED" ? "amber" : "red")}, r.kind === "soc_alert" ? "SOC alert" : r.status === "SIMULATED_DELIVERY" ? "simulated" : r.status),
+      h("span", null, (r.to || []).join(", ") || r.subject),
+      h("span", {class: "sub"}, (r.code ? r.code + " · " : "") + r.reason)))
+    : h("div", {class: "empty"}, "Nothing sent or attempted yet."));
+}
+
+function renderAudit() {
+  fill("count", S.audit_count + " entries");
+  fill("audit", S.audit.slice(0, 14).map((e) => {
+    const d = e.data || {};
+    const line = e.kind === "gateway.decision" ? d.type + " · " + d.sender + " → " + d.outcome + " " + d.code
+      : e.kind === "firewall.transition" ? d.from_mode + " → " + d.to_mode + " · " + d.reason
+      : e.kind === "email.delivered" ? (d.to || []).join(", ") + " [simulated]" : JSON.stringify(d).slice(0, 90);
+    return h("div", {class: "li"}, h("span", {class: "mono dim"}, "#" + e.seq), h("span", {class: "mono", style: {fontSize: "12.5px"}}, e.kind), h("span", {class: "sub"}, line));
+  }));
+}
+
+$("verify").onclick = async () => {
+  const d = await TW.act("/api/audit/verify", {}, (x) => x.verify.ok ? "Chain intact: " + x.verify.checked + " entries verified" : "Tampering detected at entry #" + x.verify.broken_at);
+  if (!d) return;
+  verdict = d.verify; S = d.state; render();
+  fill("verdict", verdict.ok
+    ? [h("span", {class: "statbig", style: {color: "var(--mint)"}}, "Intact"), h("span", {class: "muted"}, verdict.checked + " entries re-verified from the first one")]
+    : [h("span", {class: "statbig red"}, "Broken at #" + verdict.broken_at), h("span", {class: "muted"}, verdict.why)]);
+};
+$("tamper").onclick = async () => {
+  const d = await TW.act("/api/audit/tamper", {}, (x) => "An intruder edited entry #" + x.tampered_seq + ". Now verify.");
+  if (d) { S = d.state; verdict = null; render(); }
+};
+
+load().catch((e) => TW.toast("Cannot reach the TripWire server: " + e.message, true));
+setInterval(() => { if (!TW.busy && !document.hidden) TW.health(); }, 3000);
+</script>
+</body>
+</html>

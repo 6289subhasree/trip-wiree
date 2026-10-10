@@ -16,4 +16,4 @@ tripwire = "tripwire.__main__:main"
 include = ["tripwire*"]
 
 [tool.setuptools.package-data]
-tripwire = ["dashboard.html"]
+tripwire = ["dashboard.html", "web/*"]

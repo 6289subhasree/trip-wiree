@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TripWire · Attack arena</title>
+<link rel="stylesheet" href="/static/app.css">
+<style>
+.top3{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:16px}
+.fwcard .mode{font:800 clamp(44px,5vw,64px)/1 var(--display);letter-spacing:-.04em;margin:14px 0 8px}
+.fwcard .mode.NORMAL{color:var(--mint)} .fwcard .mode.BLOCKING{color:var(--amber)} .fwcard .mode.LOCKDOWN{color:var(--red)}
+.fwcard .row{margin-top:14px}
+.fwcard .row .in{flex:1}
+.ringcard{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px}
+.ringcard .ring{width:150px;height:150px}
+.ringcard .ring b{font-size:38px}
+.path{display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr 40px 1fr;align-items:center;margin-top:8px}
+.node{padding:18px;border-radius:18px;border:1px solid var(--line);background:var(--card2);min-height:104px;transition:border-color .2s,box-shadow .2s}
+.node .n{font:700 11px var(--mono);letter-spacing:.14em;color:var(--dim)}
+.node h4{margin:6px 0 4px;font:700 17px/1.2 var(--display)}
+.node p{margin:0;font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
+.node.hot{border-color:var(--mint);box-shadow:0 0 0 3px rgba(169,229,203,.08)}
+.node.bad{border-color:var(--red);box-shadow:0 0 0 3px rgba(255,42,61,.10)}
+.node.gw{background:#fff;color:#000;border-color:#fff} .node.gw p,.node.gw .n{color:#555}
+.node.gw.LOCKDOWN{background:var(--red);border-color:var(--red);color:#fff}.node.gw.LOCKDOWN p,.node.gw.LOCKDOWN .n{color:#ffd6da}
+.link{height:2px;background:var(--line2);position:relative}
+.link:after{content:"";position:absolute;right:-1px;top:-4px;border-left:7px solid var(--line2);border-top:5px solid transparent;border-bottom:5px solid transparent}
+.link.ok{background:var(--mint)}.link.ok:after{border-left-color:var(--mint)}
+.link.no{background:var(--red)}.link.no:after{border-left-color:var(--red)}
+.advrow{display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr 40px 1fr;margin-top:12px}
+.advrow .node{grid-column:3}
+.uplink{grid-column:3;justify-self:center;width:2px;height:16px;background:var(--line2)}
+.uplink.no{background:var(--red)}
+.stream{display:grid;grid-template-columns:1fr 1.2fr;gap:24px;align-items:center}
+.bars{width:100%;height:220px}
+.evchips{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
+.evchips .chip{font:12px var(--mono)}
+.evchips .chip.now{background:#fff;color:#000;border-color:#fff}
+.atk{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.ac{padding:18px;display:flex;flex-direction:column;gap:8px;min-height:190px}
+.ac .t{font:700 15px/1.25 var(--display)}
+.ac .d{font-size:12.5px;color:var(--muted);flex:1}
+.ac .res{font:600 11.5px var(--mono)}
+.feed{display:flex;flex-direction:column}
+.fr{display:grid;grid-template-columns:70px 170px 1fr auto;gap:14px;align-items:center;padding:12px 4px;border-top:1px solid var(--line);font-size:13.5px}
+.fr:first-child{border-top:none}
+.fr .mono{font-size:12.5px}
+.fr .why{color:var(--muted);overflow-wrap:anywhere}
+@media (max-width:1100px){.top3,.stream{grid-template-columns:1fr}.atk{grid-template-columns:repeat(2,1fr)}
+  .path,.advrow{grid-template-columns:1fr}.link{width:2px;height:22px;justify-self:center}.link:after{display:none}.advrow .node,.uplink{grid-column:1}
+  .fr{grid-template-columns:1fr;gap:4px}}
+@media (max-width:600px){.atk{grid-template-columns:1fr}}
+.atk>*,.top3>*{min-width:0}
+</style>
+</head>
+<body>
+<main>
+  <div class="wrap">
+    <div class="page-head">
+      <div class="eyebrow">Attack arena · three agents</div>
+      <h2 class="h2">Three agents. One firewall. Ten ways in.</h2>
+      <p class="lead">Agent 1 watches a security event stream and raises an alert at risk 70. Agent 2 validates it before any email goes out. Agent 3 attacks the channel between them.</p>
+    </div>
+
+    <section class="block">
+      <div class="top3">
+        <div class="card pad fwcard">
+          <div class="row" style="justify-content:space-between;margin:0"><div class="label">Firewall</div><span class="tag" id="fwHow"></span></div>
+          <div class="mode" id="fwMode">…</div>
+          <div class="muted" id="fwReason" style="font-size:14px;min-height:21px"></div>
+          <div class="row"><button class="btn sm warn" id="bBlock">Kill switch</button><button class="btn sm" id="bRelease">Release</button><button class="btn sm danger" id="bLock">Emergency lockdown</button></div>
+          <div class="row"><input class="in mono" id="code" placeholder="recovery code (server terminal)" autocomplete="off"><button class="btn sm ok" id="bRecover">Recover</button></div>
+        </div>
+        <div class="card pad ringcard">
+          <div class="label">Agent 1 · risk score</div>
+          <div class="ring" id="riskRing"><div><b id="riskVal">0</b><small id="riskSub">threshold 70</small></div></div>
+          <div class="muted" id="incident" style="font-size:13px;min-height:20px"></div>
+        </div>
+        <div class="card pad ringcard">
+          <div class="label">Intrusion pressure</div>
+          <div class="ring" id="pRing"><div><b id="pVal">0</b><small id="pSub">lockdown at 200</small></div></div>
+          <label class="row muted" style="font-size:13px;justify-content:center"><input type="checkbox" id="auto"> automatic lockdown</label>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" style="padding-top:0">
+      <div class="sechead"><h3><span class="secnum">1</span>The pathway</h3><span class="muted" id="lastLine" style="font-size:13px"></span></div>
+      <div class="card pad">
+        <div class="path">
+          <div class="node" id="nMon"><div class="n">AGENT 1</div><h4>Event monitor</h4><p id="tMon"></p></div>
+          <div class="link" id="l1"></div>
+          <div class="node gw" id="nGw"><div class="n">CHECKPOINT</div><h4>Gateway</h4><p id="tGw"></p></div>
+          <div class="link" id="l2"></div>
+          <div class="node" id="nVal"><div class="n">AGENT 2</div><h4>Validator</h4><p id="tVal"></p></div>
+          <div class="link" id="l3"></div>
+          <div class="node" id="nMail"><div class="n">ACTION</div><h4>SOC email</h4><p id="tMail"></p></div>
+        </div>
+        <div class="advrow"><div class="uplink" id="l4"></div></div>
+        <div class="advrow"><div class="node" id="nAdv"><div class="n">AGENT 3</div><h4>Adversary</h4><p id="tAdv"></p></div></div>
+      </div>
+    </section>
+
+    <section class="block" style="padding-top:0">
+      <div class="sechead"><h3><span class="secnum">2</span>Event stream</h3>
+        <div class="row"><button class="btn sm primary" id="sInc">Step incident</button><button class="btn sm" id="sBase">Step baseline</button><button class="btn sm ghost" id="sRew">Rewind</button><button class="btn sm warn" id="sAlert">Attempt alert now</button></div></div>
+      <div class="card pad stream">
+        <div>
+          <div class="label">Incident stream</div>
+          <div class="evchips" id="incChips"></div>
+          <div class="label" style="margin-top:18px">Baseline stream</div>
+          <div class="evchips" id="baseChips"></div>
+          <p class="muted" style="font-size:13px;margin-top:18px">score = min(100, 0.8 × previous + event weight). A heuristic severity index, not a probability. Deterministic, so the demo repeats exactly.</p>
+        </div>
+        <svg class="bars" id="bars" viewBox="0 0 520 220" preserveAspectRatio="none" aria-label="Risk score after each step"></svg>
+      </div>
+    </section>
+
+    <section class="block" style="padding-top:0">
+      <div class="sechead"><h3><span class="secnum">3</span>Channel attacks</h3>
+        <div class="row"><span class="muted" id="seq" style="font-size:13px"></span><button class="btn sm red" id="bSeq">Run all 10</button><button class="btn sm" id="bStop">Stop</button></div></div>
+      <div class="atk" id="atk"></div>
+    </section>
+
+    <section class="block" style="padding-top:0">
+      <div class="sechead"><h3><span class="secnum">4</span>Gateway decisions</h3><span class="muted" id="metrics" style="font-size:13px"></span></div>
+      <div class="card pad"><div class="feed" id="feed"></div></div>
+    </section>
+  </div>
+</main>
+<script src="/static/app.js"></script>
+<script>
+"use strict";
+const {h, fill, $, time, pretty} = TW;
+TW.nav("arena");
+let S = null, history = [];
+
+async function load() { apply(await TW.api("/api/state")); }
+function apply(d) {
+  const st = d && d.state ? d.state : d;
+  if (!st || !st.firewall) return;
+  S = st; TW.setFirewall(S.firewall.mode);
+  render();
+}
+
+function render() {
+  const fw = S.firewall, m = S.agents.monitor;
+  fill("fwMode", fw.mode); $("fwMode").className = "mode " + fw.mode;
+  fill("fwReason", fw.reason + " · by " + fw.actor + " · " + time(fw.since));
+  fill("fwHow", fw.automatic ? "automatic" : "manual");
+  $("bBlock").disabled = fw.mode !== "NORMAL"; $("bRelease").disabled = fw.mode !== "BLOCKING";
+  $("bLock").disabled = fw.mode === "LOCKDOWN"; $("bRecover").disabled = fw.mode === "NORMAL";
+  // rings
+  const over = m.score >= S.threshold;
+  $("riskRing").style.setProperty("--v", m.score); $("riskRing").style.setProperty("--c", over ? "var(--red)" : "var(--mint)");
+  fill("riskVal", m.score); fill("riskSub", "threshold " + S.threshold);
+  fill("incident", m.incident ? "open incident " + m.incident : m.status);
+  const p = S.pressure, pv = Math.min(100, 100 * p.value / p.threshold);
+  $("pRing").style.setProperty("--v", pv); $("pRing").style.setProperty("--c", pv > 75 ? "var(--red)" : pv > 40 ? "var(--amber)" : "var(--mint)");
+  fill("pVal", Math.round(p.value)); fill("pSub", "lockdown at " + p.threshold);
+  $("auto").checked = p.auto_lockdown;
+  renderPath(); renderStream(); renderAttacks(); renderFeed();
+}
+
+function renderPath() {
+  const fw = S.firewall.mode, d = S.feed[0], adv = S.agents.adversary;
+  fill("tMon", "score " + S.agents.monitor.score + " · " + S.agents.monitor.state);
+  fill("tGw", S.profile + " · " + fw);
+  fill("tVal", S.agents.validator.handled + " handled · " + S.agents.validator.state);
+  fill("tMail", S.metrics.emails_delivered + " simulated · " + S.metrics.email_denied + " denied");
+  fill("tAdv", adv.state === "attacking" ? "running " + (adv.run.current || "") : "idle · not a registered agent");
+  $("nGw").className = "node gw " + fw;
+  ["l1", "l2", "l3"].forEach((id) => $(id).className = "link");
+  $("l4").className = "uplink"; ["nMon", "nVal", "nMail", "nAdv"].forEach((id) => $(id).className = "node");
+  if (!d) { fill("lastLine", "no traffic yet"); return; }
+  const attack = (d.origin || "").startsWith("attack:");
+  const cls = d.outcome === "ACCEPTED" ? "ok" : "no";
+  if (attack) { $("l4").className = "uplink " + (cls === "ok" ? "" : "no"); $("nAdv").className = "node bad"; }
+  else { $("l1").className = "link " + cls; $("nMon").className = "node hot"; }
+  if (d.outcome === "ACCEPTED" && d.message_type !== "action.email.send") { $("l2").className = "link ok"; $("nVal").className = "node hot"; }
+  const act = d.action || (d.message_type === "action.email.send" ? d : null);
+  if (act) { $("l3").className = "link " + (act.email ? "ok" : "no"); if (act.email) $("nMail").className = "node hot"; }
+  fill("lastLine", "last: " + d.message_type + " from " + d.sender_id + " → " + d.outcome + " " + d.code);
+}
+
+function chips(name, el) {
+  const st = S.streams[name];
+  fill(el, st.events.map((e, i) => h("span", {class: "chip" + (i < st.pos ? " ok" : "") + (i === st.pos ? " now" : "")}, h("i"), e + " +" + S.events[e])));
+}
+function renderStream() {
+  chips("incident", "incChips"); chips("baseline", "baseChips");
+  const W = 520, H = 220, top = 14, base = 196, n = Math.max(6, history.length);
+  const y = (v) => base - (base - top) * v / 100;
+  const bw = (W - 40) / n;
+  const kids = [h("line", {svg: true, x1: 30, x2: W, y1: y(S.threshold), y2: y(S.threshold), stroke: "#ff2a3d", "stroke-dasharray": "5 5", "stroke-width": 1.2}),
+    h("text", {svg: true, x: W - 4, y: y(S.threshold) - 6, "text-anchor": "end", fill: "#ff6b78", "font-size": 11, "font-family": "Consolas,monospace"}, "alert threshold " + S.threshold),
+    h("line", {svg: true, x1: 30, x2: W, y1: base, y2: base, stroke: "rgba(255,255,255,.12)"})];
+  history.forEach((pt, i) => {
+    const x = 34 + i * bw, hgt = base - y(pt.v);
+    kids.push(h("rect", {svg: true, x: x + 4, y: y(pt.v), width: Math.max(6, bw - 12), height: Math.max(1, hgt), rx: 8,
+      fill: pt.v >= S.threshold ? "#ff2a3d" : "#a9e5cb", opacity: pt.v >= S.threshold ? 1 : .85}));
+    kids.push(h("text", {svg: true, x: x + bw / 2, y: y(pt.v) - 7, "text-anchor": "middle", fill: "#f3f0ea", "font-size": 12, "font-family": "Segoe UI,system-ui"}, String(pt.v)));
+    kids.push(h("text", {svg: true, x: x + bw / 2, y: base + 16, "text-anchor": "middle", fill: "#8a8693", "font-size": 9.5, "font-family": "Consolas,monospace"}, pt.e.slice(0, 12)));
+  });
+  if (!history.length) kids.push(h("text", {svg: true, x: W / 2, y: H / 2, "text-anchor": "middle", fill: "#5d5a66", "font-size": 13}, "Step a stream to plot Agent 1's risk score"));
+  fill("bars", kids);
+}
+
+function renderAttacks() {
+  const last = {};
+  for (const r of S.attack_log) if (!last[r.scenario]) last[r.scenario] = r;
+  fill("atk", S.scenarios.map((sc) => {
+    const r = last[sc.id];
+    return h("div", {class: "card ac"},
+      h("span", {class: "tag " + (sc.threat_model === "external" ? "" : sc.threat_model === "mitm" ? "amber" : "red")}, sc.threat_model),
+      h("span", {class: "t"}, sc.title), h("span", {class: "d"}, sc.description),
+      h("span", {class: "res " + (!r ? "dim" : r.outcome === "ACCEPTED" ? "red" : "green")}, !r ? "expect " + sc.expected : (r.outcome === "ACCEPTED" ? "PASSED · " : "STOPPED · ") + r.code),
+      h("button", {class: "btn sm", onclick: () => TW.act("/api/attack/" + sc.id, {}, (d) => sc.title + ": " + [...new Set(d.results.map((x) => x.code))].join(", ")).then(apply)}, "Launch"));
+  }));
+  const run = S.agents.adversary.run;
+  $("bSeq").disabled = run.running; $("bStop").disabled = !run.running;
+  fill("seq", run.running ? "running " + run.done + "/" + run.total + " · " + (run.current || "")
+    : run.finished_at ? "last run " + run.done + "/" + run.total + (run.lockdown_after_s != null ? " · auto-LOCKDOWN after " + run.lockdown_after_s + "s" : "") : "");
+}
+
+function renderFeed() {
+  const m = S.metrics;
+  fill("metrics", m.messages + " messages · " + m.rejected + " rejected · " + m.blocked + " blocked by firewall · " + m.unauthorized_emails + " unauthorized emails");
+  const groups = [];
+  for (const d of S.feed) {
+    const g = groups[groups.length - 1];
+    if (g && g.d.message_type === d.message_type && g.d.code === d.code && g.d.origin === d.origin) g.n++;
+    else groups.push({d, n: 1});
+  }
+  const rows = groups.slice(0, 12).map(({d, n}) => h("div", {class: "fr fade"},
+    h("span", {class: "mono dim"}, time(d.at)),
+    h("span", null, h("div", {class: "mono"}, d.message_type), h("div", {class: "dim", style: {fontSize: "12px"}}, (d.origin || "").startsWith("attack:") ? "Agent 3 · " + d.origin.slice(7) : d.sender_id)),
+    h("span", {class: "why"}, d.code + " · " + d.reason + (d.would_fail ? " (also " + d.would_fail + ")" : "")),
+    h("span", {class: "stamp " + d.outcome}, d.outcome + (n > 1 ? " ×" + n : ""))));
+  fill("feed", rows.length ? rows : h("div", {class: "empty"}, "No traffic yet. Step a stream or launch an attack."));
+}
+
+async function step(stream) {
+  const d = await TW.act("/api/stream/step", {stream}, (x) => x.event + " → " + x.decision.message_type + " " + x.decision.outcome + (x.decision.action && x.decision.action.email ? " · SOC email sent" : ""));
+  if (d) { history.push({v: d.state.agents.monitor.score, e: d.event}); apply(d); }
+}
+$("sInc").onclick = () => step("incident");
+$("sBase").onclick = () => step("baseline");
+$("sRew").onclick = async () => { const d = await TW.act("/api/stream/reset", {}, "Streams rewound · score 0"); if (d) { history = []; apply(d); } };
+$("sAlert").onclick = async () => apply(await TW.act("/api/alert", {}, (x) => "alert: " + x.decision.outcome + " " + x.decision.code));
+$("bBlock").onclick = async () => apply(await TW.act("/api/firewall", {mode: "BLOCKING"}, "Kill switch engaged"));
+$("bRelease").onclick = async () => apply(await TW.act("/api/firewall", {mode: "NORMAL"}, "Released"));
+$("bLock").onclick = async () => apply(await TW.act("/api/firewall", {mode: "LOCKDOWN"}, "Emergency lockdown"));
+$("bRecover").onclick = async () => { const d = await TW.act("/api/recover", {code: $("code").value.trim()}, "Recovered: NORMAL"); if (d) { $("code").value = ""; apply(d); } };
+$("code").addEventListener("keydown", (e) => { if (e.key === "Enter") $("bRecover").click(); });
+$("auto").onchange = async (e) => apply(await TW.act("/api/auto-lockdown", {enabled: e.target.checked}, e.target.checked ? "Auto-lockdown on" : "Auto-lockdown off"));
+$("bSeq").onclick = async () => apply(await TW.act("/api/attack-suite", {}, "Agent 3 is running all 10 attacks"));
+$("bStop").onclick = async () => apply(await TW.act("/api/attack/stop", {}, "Agent 3 stopped"));
+
+load().catch((e) => TW.toast("Cannot reach the TripWire server: " + e.message, true));
+let tick = 0;
+setInterval(() => {
+  tick++;
+  const fast = S && S.agents.adversary.run.running;
+  if (!TW.busy && !document.hidden && (fast || tick % 4 === 0)) load().catch(() => TW.setFirewall("OFFLINE"));
+}, 1000);
+</script>
+</body>
+</html>

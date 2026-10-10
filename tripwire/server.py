@@ -40,6 +40,13 @@ from .scenarios import DOC_SCENARIOS
 from .session import Session
 
 MAX_BODY = 4096
+
+# Multi-page web front end (tripwire/web). The original single-page console stays at /console.
+WEB_DIR = Path(__file__).with_name("web")
+PAGES = {"/": "index.html", "/index.html": "index.html", "/demo": "demo.html", "/arena": "arena.html",
+         "/evidence": "evidence.html"}
+STATIC = {"/static/app.css": ("app.css", "text/css; charset=utf-8"),
+          "/static/app.js": ("app.js", "text/javascript; charset=utf-8")}
 TASK_PATH = re.compile(r"^/api/tasks/([A-Za-z0-9_-]{1,64})(/document|/timeline|/report|/agent/run|/approval|/inject)?$")
 
 
@@ -287,8 +294,13 @@ def make_handler(session: Session, quiet: bool = False):
                     self.respond(404, {"error": str(exc)})
             elif path == "/favicon.ico":
                 self._send(204, b"", "image/x-icon")
-            elif path in ("/", "/index.html"):
+            elif path in PAGES:
+                self._send(200, (WEB_DIR / PAGES[path]).read_bytes(), "text/html; charset=utf-8")
+            elif path == "/console":
                 self._send(200, page_path.read_bytes(), "text/html; charset=utf-8")
+            elif path in STATIC:
+                name, ctype = STATIC[path]
+                self._send(200, (WEB_DIR / name).read_bytes(), ctype)
             else:
                 self.respond(404, {"error": "not found"})
 

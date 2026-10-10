@@ -45,8 +45,19 @@ flowchart LR
 ```powershell
 python --version                                  # 3.10 or newer
 $env:TRIPWIRE_RECOVERY_CODE = "TW-JUDGE-42"       # optional: a memorable recovery code
-python -m tripwire serve --open                   # console at http://127.0.0.1:8765
+python -m tripwire serve --open                   # website at http://127.0.0.1:8765
 ```
+
+The website has four pages, all offline and wired to the live backend:
+
+| Page | What it shows |
+|---|---|
+| `/` | Landing page with a live containment score computed from a real baseline-vs-protected run |
+| `/demo` | Invoice agent demo: pick an attack, assign the task, run Agent 1, approve or reject, compare without/with TripWire |
+| `/arena` | The three-agent event stream, firewall states, intrusion pressure and the 10 channel attacks |
+| `/evidence` | HMAC audit chain (verify / simulate tampering), task reports, outbox and the meaning of every refusal code |
+
+The original single-page operator console is still available at `/console`.
 
 Other commands:
 
@@ -54,7 +65,7 @@ Other commands:
 python -m tripwire invoice-demo                   # PRD demo script in the terminal (replay vs protected)
 python -m tripwire demo                           # original event-mode story
 python -m tripwire attack-demo                    # 10 channel attacks, strict vs baseline
-python -m unittest discover -t . -s tests -v      # 213 tests
+python -m unittest discover -t . -s tests -v      # full test suite
 ```
 
 If port 8765 is busy: `python -m tripwire serve --port 8800`. The terminal prints the operator recovery code; it is never sent to the browser.
