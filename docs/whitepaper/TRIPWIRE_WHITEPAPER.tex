@@ -143,47 +143,58 @@ The TripWire architecture physically segregates the untrusted reasoning loop fro
 \centering
 \resizebox{\textwidth}{!}{%
 \begin{tikzpicture}[
-    node distance=1.8cm and 1cm,
     every node/.style={font=\sffamily\small},
-    box/.style={rectangle, draw, rounded corners, thick, minimum width=2.5cm, minimum height=1cm, align=center},
-    tcb_box/.style={box, fill=tripwireblue!10, draw=tripwireblue, thick},
-    untrusted_box/.style={box, fill=tripwirered!10, draw=tripwirered, dashed, thick},
-    arrow/.style={-{Stealth[scale=1.2]}, thick}
+    box/.style={rectangle, draw, rounded corners, thick, minimum width=2.4cm, minimum height=1.1cm, align=center},
+    mcp/.style={box, fill=tripwireblue!10, draw=tripwireblue, thick},
+    agent/.style={box, fill=gray!10, draw=gray, thick},
+    attacker/.style={box, fill=tripwirered!10, draw=tripwirered, thick, dashed},
+    tool/.style={box, fill=tripwiregreen!10, draw=tripwiregreen, thick},
+    arrow/.style={-{Stealth[scale=1.2]}, thick, draw=tripwiregray},
+    danger/.style={-{Stealth[scale=1.2]}, thick, draw=tripwirered},
+    safe/.style={-{Stealth[scale=1.2]}, thick, draw=tripwiregreen}
 ]
 
-% Nodes
-\node[untrusted_box] (input) {Untrusted \\ Document};
-\node[untrusted_box] (agent1) [right=of input] {Agent 1 \\ (Cognitive)};
-\node[tcb_box] (gateway) [right=of agent1] {Protocol \\ Validation};
-\node[tcb_box] (capability) [right=of gateway] {Capability \\ Enforcement};
-\node[tcb_box] (policy) [right=of capability] {Policy \\ Decision};
-\node[untrusted_box] (tool) [right=of policy] {Protected \\ Tool API};
+% Untrusted Zone
+\node[attacker] (a3) {Agent 3 \\ (Attacker)};
+\node[box, fill=yellow!10, draw=orange, thick] (doc) [below=0.8cm of a3] {Untrusted \\ Document};
+\node[agent] (a1) [below=0.8cm of doc] {Agent 1 \\ (Writer)};
 
-\node[tcb_box] (audit) [below=of capability] {Immutable \\ Audit Logger};
-\node[tcb_box] (firewall) [below=of policy] {Firewall \& \\ Risk Engine};
+\draw[danger] (a3) -- node[right] {Prompt Injection} (doc);
+\draw[arrow] (doc) -- node[right] {Ingests} (a1);
 
-% Edges
-\draw[arrow] (input) -- node[above] {Ingest} (agent1);
-\draw[arrow] (agent1) -- node[above] {Proposal} (gateway);
-\draw[arrow] (gateway) -- node[above] {Valid} (capability);
-\draw[arrow] (capability) -- node[above] {Checks Pass} (policy);
-\draw[arrow, draw=tripwiregreen] (policy) -- node[above] {ALLOW} (tool);
+% MCP Server Flow (Horizontal)
+\node[mcp] (proto) [right=2.2cm of a1] {Protocol \\ Validation};
+\node[mcp] (cap) [right=1.2cm of proto] {Capability \\ Enforcement};
+\node[mcp] (pol) [right=1.2cm of cap] {Policy \\ Decision};
+\node[mcp] (audit) [below=1.6cm of proto] {Immutable \\ Audit Logger};
+\node[mcp] (firewall) [below=1.6cm of pol] {Firewall \& \\ Risk Engine};
 
-\draw[arrow, draw=tripwirered] (gateway.south) |- node[near start, left] {Reject} (audit.west);
-\draw[arrow, draw=tripwirered] (capability.south) -- node[left] {Reject} (audit.north);
-\draw[arrow, draw=tripwirered] (policy.south) -- node[left] {BLOCK} (firewall.north);
+\draw[arrow] (a1) -- node[above] {Action Proposal} (proto);
+\draw[arrow] (proto) -- node[above] {Valid} (cap);
+\draw[arrow] (cap) -- node[above] {Checks Pass} (pol);
 
-\draw[arrow] (firewall) -- node[below] {Log Event} (audit);
+% Rejects to Audit/Firewall
+\draw[danger] (proto) -- node[left] {Reject} (audit);
+\draw[danger] (cap) |- node[near end, above] {Reject} (audit);
+\draw[danger] (pol) -- node[right] {BLOCK} (firewall);
+\draw[arrow] (firewall) -- node[above] {Log Event} (audit);
 
-% TCB Boundary
+% Safe Execution Zone
+\node[tool] (action) [right=2.2cm of pol] {Protected \\ Actions};
+\node[agent] (a2) [above=2cm of action] {Agent 2 \\ (Verifier)};
+
+\draw[safe] (pol) -- node[above] {ALLOW} (action);
+\draw[safe] (pol) |- node[above, near end] {Verified Context} (a2);
+
+% MCP Box
 \begin{scope}[on background layer]
-\node[draw=tripwiregray, dashed, thick, rounded corners, fit=(gateway) (capability) (policy) (audit) (firewall), inner sep=15pt] (tcb) {};
-\node[anchor=north east, font=\sffamily\bfseries\color{tripwiregray}] at (tcb.north east) {Trusted Computing Base (TCB)};
+\node[draw=tripwireblue, thick, rounded corners, fill=tripwireblue!5, inner sep=18pt, fit=(proto) (cap) (pol) (audit) (firewall)] (mcp_box) {};
+\node[anchor=south, font=\sffamily\Large\bfseries\color{tripwireblue}] at (mcp_box.north) {TripWire MCP Server (TCB)};
 \end{scope}
 
 \end{tikzpicture}%
 }
-\caption{TripWire Request Lifecycle and Architectural Boundaries.}
+\caption{TripWire MCP Server enforcing runtime containment within a 3-agent adversarial topology.}
 \label{fig:architecture}
 \end{figure*}
 
