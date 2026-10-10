@@ -6,20 +6,41 @@ tests exercise. Browser-side state is never trusted: the UI re-renders from ``GE
 Local hardening: binds to 127.0.0.1 by default, POSTs must carry ``X-TripWire-Client`` (a
 custom header forces a CORS pre-flight, which this server never approves) and any ``Origin``
 header must match the ``Host`` header. The recovery code is never returned by any endpoint.
+
+Task mode (PRD 12) adds:
+
+    GET  /api/scenarios                     document scenarios and channel attacks
+    POST /api/tasks/start                   {"scenario", "goal"?, "instruction"?}
+    GET  /api/tasks/{id}/document           documents with masked canaries and tagged spans
+    POST /api/tasks/{id}/agent/run          Agent 1 reads, plans and proposes
+    POST /api/gateway/tool-call             one proposal: {"task_id", "tool", "args", ...}
+    POST /api/tasks/{id}/approval           {"approval_id", "decision": "approve" | "reject"}
+    GET  /api/tasks/{id}/timeline           ordered evidence ledger
+    GET  /api/tasks/{id}/report             blast-radius report
+    POST /api/tasks/{id}/inject             judge mode: {"instruction"}
+    POST /api/replay                        {"scenario", "instruction"?}
+
+The same guard, body limit and validation apply. Responses never contain a signing key, the
+recovery code or an unmasked canary token.
 """
 from __future__ import annotations
 
 import json
 import math
+import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 from urllib.parse import urlparse
 
+from .approvals import ApprovalError
+from .attacks import SCENARIOS as CHANNEL_ATTACKS
 from .firewall import FirewallError
+from .scenarios import DOC_SCENARIOS
 from .session import Session
 
 MAX_BODY = 4096
+TASK_PATH = re.compile(r"^/api/tasks/([A-Za-z0-9_-]{1,64})(/document|/timeline|/report|/agent/run|/approval|/inject)?$")
 
 
 class ApiError(Exception):
@@ -45,7 +66,88 @@ def _decision(d) -> Optional[Dict[str, Any]]:
     return None if d is None else d.to_dict()
 
 
+def _only(data: Dict[str, Any], *allowed: str) -> None:
+    extra = sorted(set(data) - set(allowed))
+    if extra:
+        raise ValueError(f"unexpected field(s): {', '.join(str(k)[:30] for k in extra[:5])}")
+
+
+def _opt_text(data: Dict[str, Any], name: str, limit: int) -> Optional[str]:
+    value = data.get(name)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip() or len(value) > limit:
+        raise ValueError(f"{name} must be 1-{limit} characters of text")
+    return value
+
+
+def scenario_catalogue() -> Dict[str, Any]:
+    return {"document": [sc.to_dict() for sc in DOC_SCENARIOS],
+            "channel": [{"id": a.id, "title": a.title, "threat_model": a.threat_model, "description": a.description,
+                         "expected": a.expected} for a in CHANNEL_ATTACKS]}
+
+
+def task_get(s: Session, task_id: str, tail: Optional[str]) -> Dict[str, Any]:
+    view = s.task_view(task_id)
+    if tail == "/document":
+        return {"task_id": task_id, "documents": view["documents"], "injected": view["injected"]}
+    if tail == "/timeline":
+        return {"task_id": task_id, "state": view["state"], "timeline": view["timeline"]}
+    if tail == "/report":
+        return {"task_id": task_id, "report": view["report"]}
+    if tail is None:
+        return {"task": view}
+    raise ApiError(405, "use POST for this endpoint")
+
+
+def task_post(s: Session, task_id: str, tail: Optional[str], data: Dict[str, Any]) -> Dict[str, Any]:
+    if tail == "/agent/run":
+        _only(data)
+        decisions = s.run_agent(task_id)
+        return {"decisions": [d.to_dict() for d in decisions], "task": s.task_view(task_id)}
+    if tail == "/inject":
+        _only(data, "instruction")
+        s.inject(task_id, data.get("instruction"))
+        return {"task": s.task_view(task_id)}
+    if tail == "/approval":
+        _only(data, "approval_id", "decision")
+        if data.get("decision") not in ("approve", "reject"):
+            raise ValueError("decision must be 'approve' or 'reject'")
+        s.task_view(task_id)  # 400 for an unknown task before anything else
+        item = s.approvals.items.get(data.get("approval_id")) if isinstance(data.get("approval_id"), str) else None
+        if item is None or item["task_id"] != task_id:
+            raise ApiError(404, "no such approval for this task")
+        # The approver is fixed here: this endpoint is the operator's console. A body cannot name one.
+        return {"approval": s.decide_approval(item["id"], data["decision"] == "approve", approver="operator"),
+                "task": s.task_view(task_id)}
+    raise ApiError(405, "use GET for this endpoint")
+
+
 def build_routes(s: Session) -> Dict[str, Callable[[Dict[str, Any], str], Any]]:
+    def task_start(data, _):
+        _only(data, "scenario", "goal", "instruction")
+        task = s.start_task(data.get("scenario"), goal=_opt_text(data, "goal", 200),
+                            instruction=_opt_text(data, "instruction", 300))
+        return {"task": s.task_view(task.task_id)}
+
+    def tool_call(data, _):
+        _only(data, "task_id", "tool", "args", "purpose", "task_link", "evidence", "resources_requested",
+              "destination", "risk_level")
+        if not isinstance(data.get("tool"), str) or not isinstance(data.get("args", {}), dict):
+            raise ValueError("tool must be text and args an object")
+        return {"decision": _decision(s.manual_tool_call(data))}
+
+    def replay(data, _):
+        _only(data, "scenario", "instruction")
+        return {"replay": s.replay(data.get("scenario"), _opt_text(data, "instruction", 300))}
+
+    def select(data, _):
+        _only(data, "task_id")
+        s.task_view(data.get("task_id"))
+        s.current_task = data["task_id"]
+        return {}
+
+
     def telemetry(data, _):
         # accepts {"score": n} or the legacy {"metric": "...", "value": n}
         key = "score" if "score" in data else "value"
@@ -87,6 +189,10 @@ def build_routes(s: Session) -> Dict[str, Callable[[Dict[str, Any], str], Any]]:
         return s.tamper_audit()
 
     return {
+        "/api/tasks/start": task_start,
+        "/api/tasks/select": select,
+        "/api/gateway/tool-call": tool_call,
+        "/api/replay": replay,
         "/api/telemetry": telemetry,
         "/api/score": telemetry,
         "/api/event": event,
@@ -169,6 +275,16 @@ def make_handler(session: Session, quiet: bool = False):
                 self.respond(200, session.snapshot())
             elif path == "/api/health":
                 self.respond(200, {"ok": True, "firewall": session.firewall.mode})
+            elif path == "/api/scenarios":
+                self.respond(200, scenario_catalogue())
+            elif TASK_PATH.match(path):
+                task_id, tail = TASK_PATH.match(path).groups()
+                try:
+                    self.respond(200, task_get(session, task_id, tail))
+                except ApiError as exc:
+                    self.respond(exc.status, {"error": str(exc)})
+                except ValueError as exc:
+                    self.respond(404, {"error": str(exc)})
             elif path in ("/", "/index.html"):
                 self._send(200, page_path.read_bytes(), "text/html; charset=utf-8")
             else:
@@ -179,6 +295,9 @@ def make_handler(session: Session, quiet: bool = False):
             handler = routes.get(path)
             if handler is None and path.startswith("/api/attack/") and path.count("/") == 3:
                 handler = routes["/api/attack/"]
+            task_route = TASK_PATH.match(path) if handler is None else None
+            if task_route:
+                handler = lambda data, _p: task_post(session, task_route.group(1), task_route.group(2), data)
             try:
                 if handler is None:
                     raise ApiError(404, "not found")
@@ -191,6 +310,8 @@ def make_handler(session: Session, quiet: bool = False):
                 self.respond(exc.status, {"error": str(exc)})
             except FirewallError as exc:
                 self.respond(409, {"error": str(exc)})
+            except ApprovalError as exc:
+                self.respond(409, {"error": str(exc), "code": exc.code})
             except (ValueError, TypeError) as exc:
                 self.respond(400, {"error": str(exc)})
 
