@@ -337,6 +337,8 @@ class ToolGateway:
                 outbound = reviewer.observe(task, v)
             if self.lineage is not None:
                 v.lineage_id = self.lineage.record(task, v)
+                if v.approval_id:
+                    self.approvals.items[v.approval_id]["lineage_id"] = v.lineage_id
             task.verdicts.append(v)
             self._timeline(task, v)
         return v, outbound
@@ -559,6 +561,64 @@ class ToolGateway:
         handle = f"out-{len(task.outputs) + 1:04d}"
         task.outputs[handle] = {"tool": v.tool, "result": v.result}
         v.result = dict(v.result, output_id=handle)
+
+    def execute_approved(self, approval: Dict[str, Any], firewall: Any) -> Dict[str, Any]:
+        """Run an action an operator approved, after re-checking everything that can have changed.
+
+        The caller holds ``Firewall.lock``. The firewall mode, the manifest signature, the task's
+        lifetime and the hard manifest limits are checked again now, not trusted from the time of
+        the request, so a LOCKDOWN or an expired capability after approval still stops the tool.
+        """
+        task = self.tasks.get(approval["task_id"])
+        tool, args = approval["tool"], dict(approval["args"])
+        code = reason = None
+        if not firewall.permits():
+            code, reason = f"FIREWALL_{firewall.mode}", f"firewall {firewall.mode}: {firewall.reason}"
+        elif task is None:
+            code, reason = "CAPABILITY_EXPIRED", "no active capability: unknown task"
+        else:
+            try:
+                manifest = self.authority.verify(task.signed, presented_hash=approval["manifest_hash"])
+            except ManifestError as exc:
+                code, reason = exc.code, exc.detail
+            else:
+                if task.state == COMPLETED:
+                    code, reason = "CAPABILITY_EXPIRED", f"capability expired: {task.closed_reason}"
+                elif self.authority.expired(manifest):
+                    code, reason = "CAPABILITY_EXPIRED", "capability expired: manifest lifetime elapsed"
+                elif tool in manifest.forbidden_tools:
+                    code, reason = "TOOL_FORBIDDEN", f"{tool} is forbidden for this task"
+                elif not self._args_ok(tool, args):
+                    code, reason = "PAYLOAD_INVALID", "arguments no longer match the tool schema"
+                elif any(r not in manifest.allowed_data for r in approval["affected_data"]):
+                    code, reason = "DATA_OUT_OF_SCOPE", "a record is outside the task scope"
+                elif any(d not in manifest.allowed_destinations for d in approval["destinations"]):
+                    code, reason = "DESTINATION_NOT_ALLOWED", "a destination is not allowlisted"
+        now = self.clock()
+        outcome: Dict[str, Any] = {"executed": False, "code": code, "reason": reason, "result": None, "at": now}
+        if code is None:
+            if not self.registry.has(tool):
+                outcome.update(code="TOOL_NOT_IN_MANIFEST", reason=f"tool '{tool[:40]}' is not installed")
+            else:
+                result = self.registry.run(tool, args, task, now)
+                handle = f"out-{len(task.outputs) + 1:04d}"
+                task.outputs[handle] = {"tool": tool, "result": result}
+                outcome.update(executed=True, code="OK", result=dict(result, output_id=handle),
+                               reason=f"approved by {approval['decided_by']}; re-checked and executed")
+        if task is not None:
+            for v in task.verdicts:
+                if v.approval_id == approval["id"] and outcome["executed"]:
+                    v.executed, v.result = True, outcome["result"]
+            if self.lineage is not None and approval.get("lineage_id"):
+                self.lineage.settle(approval["lineage_id"], executed=outcome["executed"],
+                                    approved_by=approval["decided_by"], code=outcome["code"])
+            task.log("approval.executed" if outcome["executed"] else "approval.blocked", now,
+                     source={"context": "human_approval", "id": approval["id"], "trust": "trusted"},
+                     action=tool, args=args, decision="ALLOW" if outcome["executed"] else "BLOCK",
+                     code=outcome["code"], reason=outcome["reason"], risk=approval["risk"],
+                     data_scope=approval["affected_data"], destinations=approval["destinations"],
+                     executed=outcome["executed"], approval_id=approval["id"])
+        return outcome
 
     def _timeline(self, task: Task, v: ToolVerdict) -> None:
         sources = [e["source"] for e in v.evidence if isinstance(e.get("source"), dict)] or \

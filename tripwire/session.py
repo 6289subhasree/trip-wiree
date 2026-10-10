@@ -16,6 +16,7 @@ from typing import Any, Deque, Dict, List, Optional
 
 from . import firewall as fw
 from .agents import EventMonitor, Validator
+from .approvals import ApprovalError, ApprovalQueue
 from .attacks import SCENARIO_INDEX, SCENARIOS, Adversary
 from .audit import AuditLog
 from .context import USER_TASK, Labelled
@@ -26,7 +27,8 @@ from .notifications import EgressLog, MockEmailService
 from .protocol import (ADVERSARY, EMAIL_ACTION, MONITOR, ROUTES, TOOL_GATEWAY, VALIDATOR, AgentKey, KeyRing,
                        Signer)
 from .tools import Toolbox
-from .tools_gateway import ALLOW, BLOCK, REQUIRE_APPROVAL, Task, ToolGateway, ToolRegistry
+from .tools_gateway import (ALLOW, AWAITING_APPROVAL, BLOCK, COMPLETED, OPEN, REQUIRE_APPROVAL, Task, ToolGateway,
+                            ToolRegistry)
 from .vault import Vault
 from .risk import DEFAULT_THRESHOLD, STREAMS, WEIGHTS
 
@@ -74,6 +76,12 @@ class Session:
         self.egress = EgressLog(str(self.data_dir / "egress.jsonl"), clock=self.clock)
         Toolbox(self.vault, self.outbox, self.egress).register(self.registry)
         self.tools.vendor_exists = self.vault.vendor_exists
+        # The approval queue is enforced on the gateway side. Agents can cause a request to be
+        # filed; only the operator can decide one.
+        self.approvals = ApprovalQueue(clock=self.clock, audit=self.audit,
+                                       agent_ids=(MONITOR, VALIDATOR, ADVERSARY, TOOL_GATEWAY, EMAIL_ACTION))
+        self.tools.approvals = self.approvals
+        self.lineage = None
         self._task_n = 0
         self.adversary = Adversary(adversary_key, self.clock)
         self.channel_tap: Deque[Dict[str, Any]] = deque(maxlen=50)
@@ -232,6 +240,26 @@ class Session:
             correlation = task.correlation_id if task else f"task-{str(task_id)[:40]}"
             wire = self.monitor.request_tool(task_id, presented, correlation, proposal)
             return self.submit(wire, f"task:{task_id}")
+
+    def decide_approval(self, approval_id: Any, approve: Any, approver: str = "operator") -> Dict[str, Any]:
+        """Operator decision on a pending approval. An approved action is re-checked and then run."""
+        with self.lock:
+            item = self.approvals.decide(approval_id, approve, approver)
+            task = self.tools.tasks.get(item["task_id"])
+            if task is not None:
+                task.log("approval.decision", self.clock(),
+                         source={"context": "human_approval", "id": item["id"], "trust": "trusted"},
+                         action=item["tool"], args=item["args"], decision="APPROVED" if approve else "REJECTED",
+                         code="APPROVAL_GRANTED" if approve else "APPROVAL_REJECTED",
+                         reason=f"{'approved' if approve else 'rejected'} by {approver}", risk=item["risk"],
+                         data_scope=item["affected_data"], approval_id=item["id"])
+            if approve:
+                self.approvals.settle(item["id"], self.tools.execute_approved(item, self.firewall))
+            elif self.lineage is not None and item.get("lineage_id"):
+                self.lineage.settle(item["lineage_id"], executed=False, approved_by=None, code="APPROVAL_REJECTED")
+            if task is not None and task.state == AWAITING_APPROVAL and not self.approvals.pending(task.task_id):
+                task.state = OPEN
+            return self.approvals.view(item)
 
     def complete_task(self, task_id: str, reason: str = "task completed") -> None:
         with self.lock:
