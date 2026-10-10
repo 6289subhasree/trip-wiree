@@ -2,10 +2,11 @@
 import { useEffect, useRef, useState } from "react";
 
 const LINKS = [
-  { label: "Home", href: "/" },
-  { label: "Demo", href: "/demo" },
-  { label: "Arena", href: "/arena" },
-  { label: "Evidence", href: "/evidence" },
+  { label: "Overview", href: "/" },
+  { label: "Chat", href: "/chat" },
+  { label: "Attacker", href: "/attacker" },
+  { label: "Defender", href: "/defender" },
+  { label: "System", href: "/demo" },
 ];
 
 // Must match the tablet and mobile breakpoints in globals.css where the menu toggle is shown.

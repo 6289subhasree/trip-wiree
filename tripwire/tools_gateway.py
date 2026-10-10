@@ -478,7 +478,7 @@ class ToolGateway:
                 v.triggers.append(NEW_VENDOR)
         if egress and any(not destination_is_internal(d) for d in v.destinations):
             v.triggers.append(EXTERNAL_DESTINATION)
-        v.triggers = list(dict.fromkeys(v.triggers))
+        v.triggers = [t for t in dict.fromkeys(v.triggers) if t in manifest.approval_required]
         v.checks.append({"stage": "approval", "ok": True, "code": None,
                          "detail": ("needs human approval: " + ", ".join(v.triggers)) if v.triggers
                          else "no approval rule applies"})

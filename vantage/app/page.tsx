@@ -36,6 +36,9 @@ export default function Page() {
                   </svg>
                 </span>
               </a>
+              <a className="text-link" href="/chat">
+                Chat mode <span aria-hidden="true">↗</span>
+              </a>
               <a className="text-link" href="/arena">
                 Attack arena <span aria-hidden="true">↗</span>
               </a>

@@ -227,7 +227,22 @@ def build_routes(s: Session) -> Dict[str, Callable[[Dict[str, Any], str], Any]]:
             bool(data.get("attack_active", False))
         )
 
+    def chat(data, _):
+        _only(data, "message", "session_id", "attack_simulation")
+        return s.chat_request(
+            message=str(data.get("message", "")),
+            session_id=str(data.get("session_id", "")),
+            attack_simulation=bool(data.get("attack_simulation", False))
+        )
+
+    def api_firewall_config(data, _):
+        mode = "BLOCKING" if data.get("enabled", True) else "NORMAL"
+        s.set_firewall(mode)
+        return {"enabled": mode == "BLOCKING", "mode": mode}
+
     return {
+        "/api/chat": chat,
+        "/api/firewall/config": api_firewall_config,
         "/api/tasks/start": task_start,
         "/api/tasks/select": select,
         "/api/gateway/tool-call": tool_call,
@@ -316,6 +331,38 @@ def make_handler(session: Session, quiet: bool = False, landing_dir: Optional[Pa
                 self.respond(200, session.snapshot())
             elif path == "/api/health":
                 self.respond(200, {"ok": True, "firewall": session.firewall.mode})
+            elif path == "/api/status":
+                self.respond(200, {
+                    "ok": True,
+                    "backend": "online",
+                    "firewall": session.firewall.mode,
+                    "mock_executor": "ready"
+                })
+            elif path == "/api/firewall/status":
+                self.respond(200, {
+                    "ok": True,
+                    "mode": session.firewall.mode,
+                    "enabled": session.firewall.mode == "BLOCKING"
+                })
+            elif path == "/api/attacks/runs":
+                self.respond(200, {"ok": True, "runs": list(reversed(session.attack_log))})
+            elif path == "/api/telemetry/summary":
+                m = session.metrics()
+                audit_entries = session.audit.entries
+                outbox_records = session.outbox.records
+                self.respond(200, {
+                    "ok": True,
+                    "requests": m.get("tool_calls", 0),
+                    "approved": sum(1 for e in audit_entries if e.get("kind") == "gateway.decision" and e.get("data", {}).get("outcome") == "ACCEPTED"),
+                    "blocked": sum(1 for e in audit_entries if e.get("kind") == "gateway.decision" and e.get("data", {}).get("outcome") == "BLOCKED"),
+                    "unsafe_executions": sum(1 for e in outbox_records if e.get("enforcement_bypassed", False)),
+                    "intent_mismatches": sum(1 for e in audit_entries if e.get("kind") == "gateway.decision" and "intent" in e.get("data", {}).get("reason", "").lower()),
+                    "signature_failures": sum(1 for e in audit_entries if e.get("kind") == "gateway.decision" and e.get("data", {}).get("code") == "INVALID_SIGNATURE"),
+                    "schema_failures": sum(1 for e in audit_entries if e.get("kind") == "gateway.decision" and e.get("data", {}).get("code") == "SCHEMA_VALIDATION_FAILED"),
+                    "soc_alerts": sum(1 for e in session.feed if e.get("type") == "SOC_ALERT")
+                })
+            elif path == "/api/telemetry/events":
+                self.respond(200, {"ok": True, "events": list(reversed(session.audit.entries))})
             elif path == "/api/scenarios":
                 self.respond(200, scenario_catalogue())
             elif TASK_PATH.match(path):
@@ -326,6 +373,13 @@ def make_handler(session: Session, quiet: bool = False, landing_dir: Optional[Pa
                     self.respond(exc.status, {"error": str(exc)})
                 except ValueError as exc:
                     self.respond(404, {"error": str(exc)})
+            elif path.startswith("/api/evidence/"):
+                trace_id = path.split("/")[-1]
+                evidence = next((e for e in session.audit.entries if e.get("data", {}).get("trace_id") == trace_id), None)
+                if evidence:
+                    self.respond(200, {"evidence": evidence})
+                else:
+                    self.respond(404, {"error": "Evidence not found"})
             elif path == "/favicon.ico":
                 self._send(204, b"", "image/x-icon")
             elif path in ("/", "/index.html"):
@@ -334,6 +388,8 @@ def make_handler(session: Session, quiet: bool = False, landing_dir: Optional[Pa
                 self._send(200, page.read_bytes(), "text/html; charset=utf-8")
             elif path in PAGES:
                 self._send(200, (WEB_DIR / PAGES[path]).read_bytes(), "text/html; charset=utf-8")
+            elif (landing_dir / (path.lstrip("/") + ".html")).is_file():
+                self._send(200, (landing_dir / (path.lstrip("/") + ".html")).read_bytes(), "text/html; charset=utf-8")
             elif path == "/console":
                 self._send(200, page_path.read_bytes(), "text/html; charset=utf-8")
             elif path in STATIC:

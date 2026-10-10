@@ -24,7 +24,8 @@ from typing import Callable, List, Optional
 NORMAL = "NORMAL"
 BLOCKING = "BLOCKING"
 LOCKDOWN = "LOCKDOWN"
-MODES = (NORMAL, BLOCKING, LOCKDOWN)
+BYPASSED = "BYPASSED"
+MODES = (NORMAL, BLOCKING, LOCKDOWN, BYPASSED)
 
 
 class FirewallError(PermissionError):

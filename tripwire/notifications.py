@@ -64,12 +64,13 @@ class MockEmailService:
                     fh.write(json.dumps(record, sort_keys=True) + "\n")
                 # Send actual email via SMTP
                 try:
-                    smtplib = __import__("smtplib")
-                    email_mime_text = __import__("email.mime.text", fromlist=["MIMEText"])
-                    MIMEText = email_mime_text.MIMEText
+                    import smtplib
+                    from email.mime.text import MIMEText
                     
                     sender = os.environ.get("TRIPWIRE_EMAIL", "soc-oncall@tripwire.invalid")
                     pwd = os.environ.get("TRIPWIRE_PASSWORD", "")
+                    
+                    print(f"SMTP Debug: Sender={sender}, Password length={len(pwd)}")
                     
                     for recipient in record.get("to", []):
                         msg = MIMEText(f"{record.get('body', '')}\n\n[Status: Real email from TripWire System]")
@@ -78,14 +79,19 @@ class MockEmailService:
                         msg["To"] = recipient
                         
                         if pwd:
+                            print(f"SMTP Debug: Connecting to smtp.gmail.com:465 to send to {recipient}")
                             server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
+                            # server.set_debuglevel(1)
                             server.login(sender, pwd)
                             server.send_message(msg)
                             server.quit()
+                            print(f"SMTP Debug: Successfully sent email to {recipient}")
                         else:
                             print("\n\n>>> TRIPWIRE WARNING: TRIPWIRE_PASSWORD not set. Email not sent! <<<\n")
                 except Exception as e:
+                    import traceback
                     print(f"SMTP Error: {e}")
+                    traceback.print_exc()
             return record
 
     def deliver(self, *, correlation_id: str, incident_id: str, risk_score: float, summary: str,
