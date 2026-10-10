@@ -80,6 +80,7 @@ const TW = (() => {
       menu,
       h("div", {class: "navright"},
         h("a", {class: "fw", id: "fwPill", href: "/arena", title: "Live firewall state"}, h("i"), h("span", null, "FIREWALL ...")),
+        active === "demo" ? null : h("a", {class: "btn primary navcta", href: "/demo"}, "Run demo ↗"),
         h("button", {class: "menu", "aria-label": "Menu", onclick: () => menu.classList.toggle("open")}, "Menu"))));
     document.body.prepend(bar);
     document.body.appendChild(h("footer", {class: "footer"}, h("div", {class: "wrap"},
