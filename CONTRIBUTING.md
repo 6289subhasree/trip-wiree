@@ -16,9 +16,9 @@ Thanks for helping improve this local-first security demonstration. Keep changes
 From the repository root in PowerShell:
 
 ```powershell
-python -m unittest discover -s tests -v
-python -m tripwire --demo
-python -m tripwire --attack-demo
+python -m unittest discover -t . -s tests -v
+python -m tripwire demo
+python -m tripwire attack-demo
 git diff --check
 ```
 
@@ -43,4 +43,4 @@ When a change alters a lasting architectural trade-off, add or update a record i
 
 ## Security and scope
 
-Do not add network scanning, external attack behaviour, malware, real email delivery, public listeners by default, embedded production credentials, or paid/cloud dependencies. Treat the built-in HMAC key and unauthenticated local HTTP API as demo-only. If a vulnerability is found, include a regression test and explain any residual limitation.
+Do not add network scanning, external attack behaviour, malware, real email delivery, public listeners by default, embedded production credentials, or paid/cloud dependencies. Agent keys are generated per process and must never be committed or sent to the browser; the recovery code is printed to the server console only. Treat the unauthenticated local HTTP API as demo-only. Never make the insecure `baseline` gateway profile the default. If a vulnerability is found, include a regression test and explain any residual limitation.

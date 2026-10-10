@@ -17,3 +17,7 @@ Fixtures are deterministic, safe to test, and require no external target. They d
 ## Consequences
 
 Tests and reviewers can inspect exact input/output behaviour. UI labels and documentation must call these cases simulations, not live attacks. Future threat-model expansion must remain explicitly authorized and isolated.
+
+## Update (hackday, protocol v2)
+
+The adversary is now a full agent (`tripwire/attacks.py`) with its own **unregistered** key. Its scenarios are submitted through `Gateway.submit`, the same entry point legitimate agents use, rather than called on the receiver directly. Three explicit threat models are covered: *external* (no key), *MITM* (it can observe, hold and re-inject legitimate traffic via the session's channel tap) and *compromised Agent 1* (it uses Agent 1's signer to test route, schema and rate-limit policy). Each scenario is capped at 30 messages, and the sequence runner can be stopped.
