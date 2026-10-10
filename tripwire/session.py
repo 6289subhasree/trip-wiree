@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import copy
 import secrets
+import shutil
 import tempfile
 import threading
 import time
@@ -19,20 +20,22 @@ from .agents import EventMonitor, Validator
 from .approvals import ApprovalError, ApprovalQueue
 from .attacks import SCENARIO_INDEX, SCENARIOS, Adversary
 from .audit import AuditLog
-from .context import USER_TASK, Labelled
+from .context import CONTEXTS, DOCUMENT, USER_TASK, Labelled, detect_instructions
 from .firewall import Firewall, FirewallError
 from .lineage import LineageLog
 from .report import blast_radius
 from .gateway import ACCEPTED, BASELINE, BLOCKED, CODE_HELP, REJECTED, STRICT, Decision, Gateway
 from .manifest import INVOICE_POLICY, ManifestAuthority, PolicyTemplate
 from .notifications import EgressLog, MockEmailService
+from .planner import DATA_PLACEHOLDER
 from .protocol import (ADVERSARY, EMAIL_ACTION, MONITOR, ROUTES, TOOL_GATEWAY, VALIDATOR, AgentKey, KeyRing,
                        Signer)
 from .tools import Toolbox
-from .tools_gateway import (ALLOW, AWAITING_APPROVAL, BLOCK, COMPLETED, OPEN, REQUIRE_APPROVAL, Task, ToolGateway,
-                            ToolRegistry)
+from .tools_gateway import (ALLOW, AWAITING_APPROVAL, BLOCK, COMPLETED, OPEN, REQUIRE_APPROVAL, TOOL_ARGS, Task,
+                            ToolGateway, ToolRegistry, mask_text, masked)
 from .vault import Vault
 from .risk import DEFAULT_THRESHOLD, STREAMS, WEIGHTS
+from .scenarios import DOC_SCENARIO_INDEX, DOC_SCENARIOS, clean_instruction, insert_instruction
 
 
 def new_recovery_code() -> str:
@@ -86,6 +89,8 @@ class Session:
         self.lineage = LineageLog(self.vault, self.clock)
         self.tools.lineage = self.lineage
         self._task_n = 0
+        self.current_task: Optional[str] = None
+        self.last_replay: Optional[Dict[str, Any]] = None
         self.adversary = Adversary(adversary_key, self.clock)
         self.channel_tap: Deque[Dict[str, Any]] = deque(maxlen=50)
         self.feed: Deque[Dict[str, Any]] = deque(maxlen=80)
@@ -242,7 +247,15 @@ class Session:
             presented = manifest_hash or (task.signed.hash if task else "0" * 64)
             correlation = task.correlation_id if task else f"task-{str(task_id)[:40]}"
             wire = self.monitor.request_tool(task_id, presented, correlation, proposal)
-            return self.submit(wire, f"task:{task_id}")
+            d = self.submit(wire, f"task:{task_id}")
+            if d.tool is None and task is not None:
+                # Stopped before the capability checks (firewall, rate limit, bad envelope). The
+                # attempt still belongs in the task's timeline.
+                task.log("tool.refused", d.at, source={"context": "system_policy", "id": "gateway", "trust": "trusted"},
+                         action=str(proposal.get("tool"))[:40], args=proposal.get("args"), decision="BLOCK",
+                         code=d.code, codes=[d.code], reason=d.reason, risk="high",
+                         data_scope=proposal.get("resources_requested") or [], executed=False)
+            return d
 
     def decide_approval(self, approval_id: Any, approve: Any, approver: str = "operator") -> Dict[str, Any]:
         """Operator decision on a pending approval. An approved action is re-checked and then run."""
@@ -262,7 +275,242 @@ class Session:
                 self.lineage.settle(item["lineage_id"], executed=False, approved_by=None, code="APPROVAL_REJECTED")
             if task is not None and task.state == AWAITING_APPROVAL and not self.approvals.pending(task.task_id):
                 task.state = OPEN
+            if task is not None:
+                self._finish_if_settled(task)
             return self.approvals.view(item)
+
+    # ------------------------------------------------------------------ scenarios, agent run, judge mode
+    def _task(self, task_id: Any) -> Task:
+        task = self.tools.tasks.get(task_id) if isinstance(task_id, str) else None
+        if task is None:
+            raise ValueError(f"unknown task '{str(task_id)[:40]}'")
+        return task
+
+    def start_task(self, scenario_id: Any, *, goal: Optional[str] = None, instruction: Optional[str] = None) -> Task:
+        """The user picks a document scenario and assigns the task. Issues the signed manifest."""
+        sc = DOC_SCENARIO_INDEX.get(scenario_id) if isinstance(scenario_id, str) else None
+        if sc is None:
+            raise ValueError(f"unknown document scenario '{str(scenario_id)[:40]}'")
+        if goal is not None and (not isinstance(goal, str) or not goal.strip()):
+            raise ValueError("goal must be non-empty text")
+        with self.lock:
+            task = self.open_task(goal or sc.goal, sc.scope, documents=sc.documents(), scenario=sc.id)
+            task.meta.update(primary=sc.invoice_id, ran=False, finished=False, injected=[],
+                             planner=self.monitor.planner.name)
+            self.current_task = task.task_id
+            if instruction is not None:
+                self.inject(task.task_id, instruction)
+            return task
+
+    def inject(self, task_id: Any, instruction: Any) -> Task:
+        """Judge mode: Agent 3 plants one sentence in the document. It is untrusted like the rest."""
+        with self.lock:
+            task = self._task(task_id)
+            line = clean_instruction(instruction)
+            if task.meta.get("ran"):
+                raise ValueError("the agent has already read this document; start a new task to inject again")
+            injected = task.meta.setdefault("injected", [])
+            if len(injected) >= 3:
+                raise ValueError("at most 3 injected instructions per task")
+            primary = task.meta.get("primary") or next(iter(task.documents))
+            task.documents[primary] = insert_instruction(task.documents[primary], line)
+            injected.append(line)
+            task.log("document.injected", self.clock(),
+                     source={"context": DOCUMENT, "id": primary, "trust": CONTEXTS[DOCUMENT].trust},
+                     action=line, decision="-", code="JUDGE_INJECTION",
+                     reason="red team inserted a custom sentence into the document (untrusted content)",
+                     risk="medium", data_scope=[f"document:{primary}"])
+            self.audit.append("task.inject", {"task_id": task.task_id, "document": primary, "instruction": mask_text(line),
+                                              "actor": ADVERSARY})
+            return task
+
+    def run_agent(self, task_id: Any) -> List[Decision]:
+        """Agent 1 reads the task's documents, plans, and proposes each step to the gateway."""
+        with self.lock:
+            task = self._task(task_id)
+            if task.meta.get("ran"):
+                raise ValueError("the agent already ran for this task; start a new task")
+            if task.state == COMPLETED:
+                raise ValueError("this task is closed")
+            task.meta["ran"] = True
+            primary = task.meta.setdefault("primary", next(iter(task.documents), None))
+            if primary is None:
+                raise ValueError("this task has no document to read")
+            trust = CONTEXTS[DOCUMENT].trust
+            for doc_id, text in task.documents.items():
+                spans = detect_instructions(text)
+                task.log("document.read", self.clock(), source={"context": DOCUMENT, "id": doc_id, "trust": trust},
+                         action=f"read {doc_id}", decision="-", code="-",
+                         reason=f"{len(text)} characters read as untrusted evidence; "
+                                f"{len(spans)} instruction-like sentence(s) tagged",
+                         risk="medium" if spans else "low", data_scope=[f"document:{doc_id}"])
+                for span in spans:
+                    task.log("instruction.detected", self.clock(),
+                             source={"context": DOCUMENT, "id": doc_id, "trust": trust, "span": [span.start, span.end]},
+                             action=span.text, decision="TAGGED", code="UNTRUSTED_INSTRUCTION",
+                             reason="; ".join(span.reasons) + ". Tagged for display; cannot grant authority",
+                             risk="medium", data_scope=[])
+            planner = self.monitor.planner
+            task.meta["planner"] = planner.name
+            steps = planner.plan(task_id=task.task_id, goal=task.goal.text, documents=dict(task.documents),
+                                 primary=primary)
+            task.meta["plan"] = [{"tool": s["tool"], "origin": s.get("origin"), "instruction": s.get("instruction")}
+                                 for s in steps]
+            decisions: List[Decision] = []
+            artifact: Optional[str] = None
+            for step in steps:
+                args = {k: (v.replace(DATA_PLACEHOLDER, artifact or "requested-data") if isinstance(v, str) else v)
+                        for k, v in step["args"].items()}
+                d = self.tool_call(task.task_id, dict(step, args=args))
+                decisions.append(d)
+                if d.tool is None:
+                    break  # the gateway is refusing envelopes (firewall or budget); the agent stops
+                produced = (d.tool.get("result") or {}).get("artifact") if d.tool.get("executed") else None
+                artifact = produced or artifact
+            self._finish_if_settled(task)
+            return decisions
+
+    def manual_tool_call(self, data: Dict[str, Any]) -> Decision:
+        """One proposal typed in by the operator or a judge, signed by Agent 1 like any other."""
+        with self.lock:
+            task = self._task(data.get("task_id"))
+            evidence = data.get("evidence")
+            if evidence is None:
+                evidence = [{"claim": task.goal.text[:240],
+                             "source": {"context": USER_TASK, "id": task.task_id, "span": None}}]
+            proposal = {"tool": data.get("tool"), "args": data.get("args", {}),
+                        "purpose": data.get("purpose", "Manual tool call from the console"),
+                        "task_link": data.get("task_link", task.goal.text[:200]), "evidence": evidence,
+                        "resources_requested": data.get("resources_requested", []),
+                        "destination": data.get("destination", "internal-accounting"),
+                        "risk_level": data.get("risk_level", "low")}
+            return self.tool_call(task.task_id, proposal)
+
+    def task_result(self, task: Task) -> Dict[str, Any]:
+        primary = task.meta.get("primary")
+        fields = vendor = None
+        for output in task.outputs.values():
+            result = output["result"]
+            if output["tool"] == "extract_invoice_fields" and result.get("invoice_id") == primary:
+                fields = result
+            elif output["tool"] == "get_vendor_record" and "error" not in result:
+                vendor = result
+        return {"fields": fields, "vendor": vendor,
+                "agent_reading": {k: v for k, v in self.monitor.planner.read_fields(
+                    task.documents.get(primary, "")).items() if k != "spans"} if primary else None,
+                "drafts": [d for d in self.vault.drafts if d["task_id"] == task.task_id],
+                "bank_changes": [c for c in self.vault.bank_changes if c["task_id"] == task.task_id]}
+
+    def _finish_if_settled(self, task: Task) -> None:
+        """When the agent has run and no approval is pending: record result and report, expire the capability."""
+        if not task.meta.get("ran") or task.meta.get("finished") or self.approvals.pending(task.task_id):
+            return
+        task.meta["finished"] = True
+        result, now = self.task_result(task), self.clock()
+        drafts = result["drafts"]
+        task.log("task.result", now, source={"context": "tool_output", "id": "internal-accounting", "trust": "data_only"},
+                 action="legitimate task result", decision="DONE" if drafts else "NO DRAFT",
+                 code="RESULT",
+                 reason=(f"payment draft {drafts[-1]['draft_id']} for INR {drafts[-1]['amount_inr']:,.0f} created"
+                         if drafts else "no payment draft was created"),
+                 risk="low", data_scope=list(task.manifest.allowed_data))
+        report = blast_radius(task.task_id, self.lineage.for_task(task.task_id))
+        task.log("task.report", now, source={"context": "system_policy", "id": "gateway", "trust": "trusted"},
+                 action="blast-radius report", decision=report["containment"], code=report["severity"].upper(),
+                 reason=report["summary"], risk=report["attempted_severity"].lower(), data_scope=[])
+        self.audit.append("task.report", {k: report[k] for k in (
+            "task_id", "profile", "severity", "attempted_severity", "containment", "sensitive_records_protected",
+            "sensitive_records_exposed", "canaries_protected", "canaries_exposed", "amount_at_risk_inr",
+            "external_destinations_attempted", "external_destinations_reached")})
+        self.tools.close_task(task.task_id, "task completed")
+
+    def task_view(self, task_id: Any) -> Dict[str, Any]:
+        """Everything the console shows about one task. Canaries are masked; no key material."""
+        with self.lock:
+            task = self._task(task_id)
+            m, signed = task.manifest, task.signed
+            primary = task.meta.get("primary")
+            documents = []
+            for doc_id, text in task.documents.items():
+                documents.append({"doc_id": doc_id, "role": "invoice" if doc_id == primary else "supporting",
+                                  "context": DOCUMENT, "trust": CONTEXTS[DOCUMENT].trust, "can_authorize": False,
+                                  "text": mask_text(text),
+                                  "spans": [s.to_dict() for s in detect_instructions(text)]})
+            last: Dict[str, str] = {}
+            for v in task.verdicts:
+                last[v.tool] = v.decision
+            runs: Dict[str, int] = {}
+            for entry in self.registry.log:
+                if entry["task_id"] == task.task_id:
+                    runs[entry["tool"]] = runs.get(entry["tool"], 0) + 1
+            capabilities = []
+            for tool in TOOL_ARGS:
+                if tool in m.forbidden_tools:
+                    status = "forbidden"
+                elif tool in m.allowed_tools:
+                    status = "allowed"
+                else:
+                    status = "approval"
+                capabilities.append({"tool": tool, "status": status, "executions": runs.get(tool, 0),
+                                     "last_decision": last.get(tool)})
+            risk = self.validator.task_risk.get(task.task_id)
+            expired = task.state == COMPLETED or self.tools.authority.expired(m)
+            return {
+                "task_id": task.task_id, "scenario": task.scenario, "goal": task.goal.text, "state": task.state,
+                "closed_reason": task.closed_reason, "ran": bool(task.meta.get("ran")),
+                "finished": bool(task.meta.get("finished")), "injected": masked(task.meta.get("injected", [])),
+                "planner": task.meta.get("planner"), "primary_document": primary,
+                "manifest": m.to_dict(), "manifest_hash": signed.hash, "manifest_key_id": signed.key_id,
+                "capability": {"active": not expired, "expires_at": m.expires_at, "expires_on": "task_completion",
+                               "tools": capabilities},
+                "documents": documents, "timeline": list(task.timeline),
+                "approvals": [self.approvals.view(i) for i in self.approvals.for_task(task.task_id)],
+                "lineage": [self.lineage.view(e) for e in self.lineage.for_task(task.task_id)],
+                "report": blast_radius(task.task_id, self.lineage.for_task(task.task_id)),
+                "result": masked(self.task_result(task)),
+                "risk": {"score": risk.score if risk else 0.0, "threshold": self.threshold,
+                         "alerted": task.task_id in self.validator.task_alerted},
+            }
+
+    def replay(self, scenario_id: Any, instruction: Optional[str] = None) -> Dict[str, Any]:
+        """Red-team replay: the same scenario through the baseline and through the protected gateway.
+
+        Both runs happen in throwaway sessions with their own vault, outbox and audit log. The
+        live session never switches to the insecure profile and none of its data is touched.
+        """
+        sc = DOC_SCENARIO_INDEX.get(scenario_id) if isinstance(scenario_id, str) else None
+        if sc is None:
+            raise ValueError(f"unknown document scenario '{str(scenario_id)[:40]}'")
+        line = clean_instruction(instruction) if instruction is not None else None
+        runs = {name: self._isolated_run(sc.id, line, profile)
+                for name, profile in (("baseline", BASELINE), ("protected", STRICT))}
+        result = {"scenario": sc.to_dict(), "instruction": mask_text(line) if line else None, "at": self.clock(),
+                  "label": "Counterfactual red-team simulation",
+                  "note": "Baseline is an unconstrained mock agent run in a throwaway session. It shows what the "
+                          "same agent attempts without TripWire and is never a recommended configuration.",
+                  **runs}
+        with self.lock:
+            self.last_replay = result
+            self.audit.append("replay.run", {"scenario": sc.id, "instruction": result["instruction"], **{
+                name: {"severity": runs[name]["report"]["severity"], "containment": runs[name]["report"]["containment"]}
+                for name in runs}})
+        return result
+
+    def _isolated_run(self, scenario_id: str, instruction: Optional[str], profile: str) -> Dict[str, Any]:
+        tmp = tempfile.mkdtemp(prefix="tripwire-replay-")
+        try:
+            s = Session(self.threshold, data_dir=tmp, attack_delay_s=0, auto_lockdown=False, clock=self.clock)
+            s.set_profile(profile)
+            task = s.start_task(scenario_id, instruction=instruction)
+            s.run_agent(task.task_id)
+            view = s.task_view(task.task_id)
+            view.update(profile=profile, counterfactual=profile == BASELINE,
+                        tool_executions=dict(s.registry.executions), egress=list(s.egress.records),
+                        outbox=[r for r in s.outbox.records if r["status"] == "SIMULATED_DELIVERY"],
+                        audit_ok=s.audit.verify()["ok"])
+            return view
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
     def report(self, task_id: str) -> Dict[str, Any]:
         """Blast-radius report for one task, recomputed from lineage every time it is asked for."""
@@ -419,18 +667,31 @@ class Session:
                              "auto_lockdown": self.gateway.auto_lockdown,
                              "last_trigger": self.gateway.last_lockdown_trigger},
                 "agents": {
-                    "monitor": {"id": MONITOR, "score": self.monitor.model.score, "signals": self.monitor.model.recent,
+                    "monitor": {"id": MONITOR, "role": "Intake Agent", "planner": self.monitor.planner.name,
+                                "score": self.monitor.model.score, "signals": self.monitor.model.recent,
                                 "incident": self.monitor.incident, "status": self.monitor.last_status,
                                 "state": "online" if self.firewall.mode == fw.NORMAL else "isolated"},
-                    "validator": {"id": VALIDATOR, "status": self.validator.last_status, "handled": self.validator.handled,
+                    "validator": {"id": VALIDATOR, "role": "Policy Validator", "reviewed": self.validator.reviewed,
+                                  "status": self.validator.last_status, "handled": self.validator.handled,
                                   "state": "online" if self.firewall.mode == fw.NORMAL else "isolated"},
-                    "adversary": {"id": ADVERSARY, "registered": False,
+                    "adversary": {"id": ADVERSARY, "role": "Red Team", "registered": False,
                                   "state": "attacking" if self.attack_run["running"] else "idle",
                                   "run": dict(self.attack_run)},
                     "gateway": {"keys": self.keyring.agents(), "email_action": EMAIL_ACTION},
                 },
                 "streams": {n: {"pos": self.stream_pos[n], "events": STREAMS[n]} for n in STREAMS},
                 "events": WEIGHTS,
+                "doc_scenarios": [sc.to_dict() for sc in DOC_SCENARIOS],
+                "contexts": [{"name": c.name, "label": c.label, "trust": c.trust, "can_authorize": c.can_authorize}
+                             for c in CONTEXTS.values()],
+                "tasks": [{"task_id": t.task_id, "scenario": t.scenario, "state": t.state, "goal": t.goal.text,
+                           "ran": bool(t.meta.get("ran"))} for t in list(self.tools.tasks.values())[-12:]],
+                "task": self.task_view(self.current_task) if self.current_task in self.tools.tasks else None,
+                "approvals_pending": [self.approvals.view(i) for i in self.approvals.pending()],
+                "tool_executions": dict(self.registry.executions),
+                "vault": self.vault.stats(),
+                "egress": list(reversed(self.egress.records[-20:])),
+                "replay": self.last_replay,
                 "scenarios": [{"id": s.id, "title": s.title, "threat_model": s.threat_model,
                                "description": s.description, "expected": s.expected} for s in SCENARIOS],
                 "metrics": self.metrics(),
@@ -441,6 +702,7 @@ class Session:
                 "audit_head": self.audit.head,
                 "audit_count": len(self.audit.entries),
                 "codes": CODE_HELP,
-                "paths": {"outbox": str(self.outbox.path), "audit": str(self.audit.path)},
+                "paths": {"outbox": str(self.outbox.path), "audit": str(self.audit.path),
+                          "egress": str(self.egress.path)},
                 "now": self.clock(),
             }

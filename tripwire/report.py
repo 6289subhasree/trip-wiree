@@ -148,6 +148,8 @@ def blast_radius(task_id: str, entries: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def _summary(r: Dict[str, Any]) -> str:
+    if not r["requests"]:
+        return "No tool request reached the capability gateway."
     if r["containment"] == CLEAN:
         return f"Clean run: {r['requests']} request(s), all inside the manifest."
     if r["containment"] == BREACHED:
