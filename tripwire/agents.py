@@ -43,10 +43,14 @@ class RelayAgent:
             return ReceiveResult("REJECTED", "metric must be a non-empty string")
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             return ReceiveResult("REJECTED", "value must be numeric")
-        if not math.isfinite(float(value)):
+        try:
+            numeric_value = float(value)
+        except (OverflowError, ValueError):
+            return ReceiveResult("REJECTED", "value must be finite")
+        if not math.isfinite(numeric_value):
             return ReceiveResult("REJECTED", "value must be finite")
         if value >= threshold:
-            self.outbox.send_alert(metric, float(value), threshold, envelope.message_id)
+            self.outbox.send_alert(metric, numeric_value, threshold, envelope.message_id)
             return ReceiveResult("ALERT", f"{metric}={value:g} crossed {threshold:g}", True)
         return ReceiveResult("ACCEPTED", f"{metric}={value:g} is below threshold {threshold:g}")
 
@@ -58,8 +62,11 @@ class AdversaryAgent:
         return replace(envelope, payload={**envelope.payload, "value": value})
 
     @staticmethod
-    def malformed_payload(envelope: Envelope) -> Envelope:
-        return replace(envelope, payload={"metric": ["not", "a", "string"], "value": "high"})
+    def malformed_payload(envelope: Envelope, protocol: SignedProtocol | None = None) -> Envelope:
+        payload = {"metric": ["not", "a", "string"], "value": "high"}
+        if protocol is not None:
+            return protocol.sign(envelope.sender, payload)
+        return replace(envelope, payload=payload)
 
     @staticmethod
     def forge_sender(envelope: Envelope, sender: str) -> Envelope:
