@@ -313,6 +313,16 @@ The TripWire Python implementation was evaluated against a suite of 214 adversar
 \end{itemize}
 The gateway demonstrated deterministic, zero-variance rejection of all \texttt{BAD\_MAC}, \texttt{REPLAY}, \texttt{RATE\_LIMITED}, and \texttt{UNTRUSTED\_AUTHORITY} exploit vectors during simulated runtime execution.
 
+\subsection{Multi-Agent Attack Topology Simulation}
+To rigorously validate TripWire's efficacy against indirect prompt injections in distributed systems \cite{multiagent_llm_security}, we implemented a continuous adversarial simulation using a three-agent topology:
+\begin{enumerate}
+    \item \textbf{Agent 1 (The Writer):} A cognitive node responsible for ingesting user directives (e.g., ``Draft a leave request email'') and synthesizing the payload.
+    \item \textbf{Agent 2 (The Verifier):} A secondary node tasked with semantic review and executing the \texttt{send\_email} kinetic capability.
+    \item \textbf{Agent 3 (The Attacker):} A persistent external threat executing continuous prompt injection attacks against Agent 1's context window.
+\end{enumerate}
+\textbf{Without TripWire (Firewall OFF):} Agent 3 successfully injects semantic payloads, hijacking Agent 1's reasoning. Agent 1 drafts a malicious or corrupted payload (gibberish), which Agent 2 blindly authorizes and transmits, resulting in a successful compromise. \\
+\textbf{With TripWire (Firewall ON):} The capability gateway intercepts Agent 3's adversarial instructions by evaluating provenance (\texttt{UNTRUSTED\_AUTHORITY}) and structural intent (\texttt{INTENT\_MISMATCH}). The attack is synchronously blocked and logged to the Threat Dashboard. Agent 1 maintains cognitive integrity, processes the original human user's request, and Agent 2 successfully transmits the correct email. This topology proves that cryptographic boundaries successfully mitigate zero-day indirect prompt injections in complex multi-agent architectures.
+
 \section{Limitations and Future Work}
 While TripWire provides robust mathematical containment for protected execution paths, several limitations remain. 
 
