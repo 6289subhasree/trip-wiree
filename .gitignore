@@ -6,3 +6,6 @@ venv/
 *.jsonl
 .pytest_cache/
 .coverage
+
+# hand-off bundles
+*.bundle
