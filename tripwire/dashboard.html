@@ -124,6 +124,7 @@ input:focus,select:focus,button:focus-visible{outline:1px solid var(--bone);outl
 .s-ALLOW,.s-ACCEPTED,.s-DONE,.s-APPROVED{color:var(--green)}
 .s-BLOCK,.s-REJECTED,.s-BLOCKED,.s-BREACHED{color:var(--crimson)}
 .s-APPROVAL,.s-PENDING_APPROVAL{color:var(--amber)}
+.s-FORCED{color:var(--crimson)}
 .s-other{color:var(--muted)}
 .detail{grid-column:1/-1;background:var(--ink);border:1px solid var(--rule);padding:8px;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--bone);max-height:340px;overflow:auto;cursor:text}
 .empty{color:var(--muted);padding:14px 2px;font-family:var(--sans)}
@@ -224,6 +225,9 @@ th{font-weight:400;color:var(--muted);font-size:10.5px;letter-spacing:.1em;text-
       </div>
       <div class="row"><input type="text" id="inject" class="fill" maxlength="300" placeholder="Agent 3 · insert an instruction into the document" aria-label="Instruction to insert">
         <button class="btn danger" id="injectBtn">Insert</button></div>
+      <div class="row"><select id="forceTool" aria-label="Force attempt: tool" style="flex:1 1 150px"></select>
+        <input type="text" id="forceDest" maxlength="80" placeholder="destination (optional)" aria-label="Forced destination" style="flex:1 1 110px">
+        <input type="text" id="forceRec" maxlength="32" placeholder="record id (optional)" aria-label="Forced record id" style="flex:1 1 100px"></div>
       <p class="hint" id="injectHint">Inserted text is document content. It is read by the agent and cannot grant authority.</p>
       <div id="docs"></div>
     </div>
@@ -386,7 +390,7 @@ function apply(state) {
 
 /* ---------------------------------------------------------------- rendering */
 function stamp(text) {
-  const known = ["ALLOW", "ACCEPTED", "DONE", "APPROVED", "BLOCK", "REJECTED", "BLOCKED", "BREACHED", "APPROVAL", "PENDING_APPROVAL"];
+  const known = ["ALLOW", "ACCEPTED", "DONE", "APPROVED", "BLOCK", "REJECTED", "BLOCKED", "BREACHED", "APPROVAL", "PENDING_APPROVAL", "FORCED"];
   return h("span", {class: "stamp s-" + (known.includes(text) ? text : "other")}, text || "-");
 }
 function ledgerRow(key, time, st, action, why, meta, detail, wide) {
@@ -464,7 +468,8 @@ function renderDocs() {
         if (cur < end) parts.push(doc.text.slice(cur, end));
         node = h("div", {class: "ln" + (hits.length ? " hit" : "")}, parts,
           hits.length ? h("span", {class: "note"}, "Untrusted · cannot grant authority") : null,
-          injected ? h("span", {class: "inj"}, "Inserted by Agent 3 (judge mode)" + (hits.length ? "" : " · not tagged by the detector; still enforced")) : null);
+          injected ? h("span", {class: "inj"}, "Inserted by Agent 3 (judge mode)" + (hits.length ? "" : " · not tagged by the detector; still enforced")
+            + ((t.forced.find(f => f.instruction === line) || {}).tool ? " · forced attempt: " + t.forced.find(f => f.instruction === line).tool : "")) : null);
       }
       out.push(node);
     });
@@ -684,13 +689,23 @@ function renderControls() {
   if (!scenariosLoaded) {
     fill($("scenario"), S.doc_scenarios.map(sc => h("option", {value: sc.id}, `${sc.title} · ${sc.invoice_id} · ${inr(sc.amount_inr)}`)));
     $("scenario").value = "footer_injection"; scenariosLoaded = true; scenarioChanged();
+    fill($("forceTool"), h("option", {value: ""}, "Force attempt: off (Agent 1 decides)"),
+      Object.keys(S.tool_executions).map(t => h("option", {value: t}, "Force attempt: " + t)));
   }
   const t = S.task;
   $("runBtn").disabled = !t || t.ran;
   $("injectBtn").disabled = !t || t.ran;
   $("injectHint").textContent = !t ? "Assign a task first. Inserted text is document content and cannot grant authority."
     : t.ran ? "The agent has already read this document. Assign a new task to insert again."
-    : "Inserted text is document content. It is read by the agent and cannot grant authority.";
+    : "Inserted text is document content. It is read by the agent and cannot grant authority. With Force attempt, Agent 1 proposes exactly the chosen tool and cites the sentence as its only evidence.";
+  for (const id of ["forceTool", "forceDest", "forceRec"]) $(id).disabled = !t || t.ran;
+}
+function forceChoice() {
+  if (!$("forceTool").value) return null;
+  const f = {tool: $("forceTool").value};
+  if ($("forceDest").value.trim()) f.destination = $("forceDest").value.trim();
+  if ($("forceRec").value.trim()) f.record = $("forceRec").value.trim();
+  return f;
 }
 function scenarioChanged() {
   const sc = S.doc_scenarios.find(x => x.id === $("scenario").value); if (!sc) return;
@@ -714,11 +729,19 @@ $("modeEvent").onclick = () => { mode = "event"; render(); };
 $("scenario").onchange = scenarioChanged;
 $("startBtn").onclick = async () => { showReplay = false; await post("/api/tasks/start", {scenario: $("scenario").value, goal: $("goal").value}); };
 $("runBtn").onclick = () => S.task && post(`/api/tasks/${S.task.task_id}/agent/run`, {});
-$("injectBtn").onclick = async () => { if (S.task && await post(`/api/tasks/${S.task.task_id}/inject`, {instruction: $("inject").value})) $("inject").value = ""; };
+$("injectBtn").onclick = async () => {
+  if (!S.task) return;
+  const body = {instruction: $("inject").value}, f = forceChoice();
+  if (f) body.force = f;
+  if (await post(`/api/tasks/${S.task.task_id}/inject`, body)) { $("inject").value = ""; $("forceTool").value = ""; $("forceDest").value = ""; $("forceRec").value = ""; }
+};
 $("replayBtn").onclick = async () => {
   const body = {scenario: S.task ? S.task.scenario : $("scenario").value};
-  const inj = S.task && S.task.injected.length ? S.task.injected.join(" ") : $("inject").value.trim();
+  const forced = S.task && S.task.forced.length ? S.task.forced[0] : null;
+  const inj = forced ? forced.instruction : S.task && S.task.injected.length ? S.task.injected.join(" ") : $("inject").value.trim();
   if (inj) body.instruction = inj.slice(0, 300);
+  if (forced) body.force = {tool: forced.tool, ...(forced.destination ? {destination: forced.destination} : {}), ...(forced.record ? {record: forced.record} : {})};
+  else if (inj && !S.task && forceChoice()) body.force = forceChoice();
   if (await post("/api/replay", body)) { showReplay = true; render(); }
 };
 $("replayClose").onclick = () => { showReplay = false; render(); };

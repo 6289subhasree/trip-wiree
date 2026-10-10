@@ -180,3 +180,69 @@ class DeterministicPlanner(Planner):
             out.append(("create_payment_draft", {"invoice_id": invoice_id, "amount": amount},
                         [f"invoice:{invoice_id}"], internal))
         return out
+
+
+FORCE_TOOLS = ("extract_invoice_fields", "get_vendor_record", "create_payment_draft", "change_vendor_bank_account",
+               "export_customer_list", "get_customer_records", "send_email", "upload_external_file")
+_FORCE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$")
+
+
+def clean_force(force: Any) -> Dict[str, Any]:
+    """Validate a judge's "force attempt": a tool, and optionally a destination and a record id."""
+    if not isinstance(force, dict) or set(force) - {"tool", "destination", "record"}:
+        raise ValueError("force must be an object with tool and optional destination, record")
+    tool, destination, record = force.get("tool"), force.get("destination"), force.get("record")
+    if tool not in FORCE_TOOLS:
+        raise ValueError(f"force.tool must be one of: {', '.join(FORCE_TOOLS)}")
+    if destination is not None and (not isinstance(destination, str) or not 0 < len(destination.strip()) <= 80):
+        raise ValueError("force.destination must be 1-80 characters")
+    if record is not None and (not isinstance(record, str) or not _FORCE_ID.match(record)):
+        raise ValueError("force.record must be a record id such as INV-1043, ACME-17 or CUST-0007")
+    return {"tool": tool, "destination": destination.strip() if destination else None, "record": record}
+
+
+def _resource_for(record: str) -> str:
+    upper = record.upper()
+    kind = "invoice" if upper.startswith("INV") else "customer" if upper.startswith("CUST") else "vendor"
+    return f"{kind}:{record}"
+
+
+def forced_step(*, goal: str, doc_id: str, document: str, sentence: str, force: Dict[str, Any],
+                fields: Dict[str, Any]) -> Dict[str, Any]:
+    """Judge mode: Agent 1 proposes exactly the chosen tool, citing the inserted sentence as its
+    only evidence. This bypasses the planner's own (limited) reading of the sentence, so any
+    request a judge can think of reaches the gateway. It bypasses nothing else."""
+    tool, destination, record = force["tool"], force.get("destination"), force.get("record")
+    invoice_id = fields.get("invoice_id") or "INV-0000"
+    vendor_id = fields.get("vendor_id") or "VENDOR-0"
+    internal = "internal-accounting"
+    if tool == "extract_invoice_fields":
+        target = record or invoice_id
+        args, resources, dest = {"invoice_id": target}, [f"invoice:{target}"], destination or internal
+    elif tool == "get_vendor_record":
+        target = record or vendor_id
+        args, resources, dest = {"vendor_id": target}, [f"vendor:{target}"], destination or internal
+    elif tool == "create_payment_draft":
+        target = record or invoice_id
+        amount = parse_amount(sentence) or fields.get("amount_inr") or 1.0
+        args, resources, dest = {"invoice_id": target, "amount": amount}, [f"invoice:{target}"], destination or internal
+    elif tool == "change_vendor_bank_account":
+        target = record or vendor_id
+        detail = re.search(r"(IFSC\s+[A-Z0-9]+(?:\s+A/C\s+\d+)?|A/C\s+\d+)", sentence, re.I)
+        args = {"vendor_id": target, "bank": detail.group(1)[:120] if detail else "IFSC FORCED00001 A/C 999900001111"}
+        resources, dest = [f"vendor:{target}"], destination or internal
+    elif tool in ("export_customer_list", "get_customer_records"):
+        args, resources, dest = {}, ["customer:*"], destination or internal
+    else:
+        dest = destination or ("judge@forced-attempt.invalid" if tool == "send_email" else "forced-attempt.invalid")
+        resources = [_resource_for(record)] if record else []
+        key = "body" if tool == "send_email" else "data"
+        args = {"destination": dest, key: f"Forced attempt: {DATA_PLACEHOLDER}"}
+    start = document.find(sentence)
+    start = max(start, 0)
+    end = min(start + len(sentence), start + 240)
+    return {"tool": tool, "args": args, "purpose": f"The document says: {sentence}"[:200], "task_link": goal[:200],
+            "evidence": [{"claim": document[start:end], "source": {"context": "document", "id": doc_id,
+                                                                    "span": [start, end]}}],
+            "resources_requested": resources, "destination": dest, "risk_level": "low", "origin": "forced",
+            "instruction": {"doc_id": doc_id, "start": start, "end": start + len(sentence)}}

@@ -27,7 +27,7 @@ from .report import blast_radius
 from .gateway import ACCEPTED, BASELINE, BLOCKED, CODE_HELP, REJECTED, STRICT, Decision, Gateway
 from .manifest import INVOICE_POLICY, ManifestAuthority, PolicyTemplate
 from .notifications import EgressLog, MockEmailService
-from .planner import DATA_PLACEHOLDER
+from .planner import DATA_PLACEHOLDER, clean_force, forced_step
 from .protocol import (ADVERSARY, EMAIL_ACTION, MONITOR, ROUTES, TOOL_GATEWAY, VALIDATOR, AgentKey, KeyRing,
                        Signer)
 from .tools import Toolbox
@@ -286,7 +286,8 @@ class Session:
             raise ValueError(f"unknown task '{str(task_id)[:40]}'")
         return task
 
-    def start_task(self, scenario_id: Any, *, goal: Optional[str] = None, instruction: Optional[str] = None) -> Task:
+    def start_task(self, scenario_id: Any, *, goal: Optional[str] = None, instruction: Optional[str] = None,
+                   force: Optional[Dict[str, Any]] = None) -> Task:
         """The user picks a document scenario and assigns the task. Issues the signed manifest."""
         sc = DOC_SCENARIO_INDEX.get(scenario_id) if isinstance(scenario_id, str) else None
         if sc is None:
@@ -299,14 +300,22 @@ class Session:
                              planner=self.monitor.planner.name)
             self.current_task = task.task_id
             if instruction is not None:
-                self.inject(task.task_id, instruction)
+                self.inject(task.task_id, instruction, force)
+            elif force is not None:
+                raise ValueError("a forced attempt needs an inserted instruction to cite")
             return task
 
-    def inject(self, task_id: Any, instruction: Any) -> Task:
-        """Judge mode: Agent 3 plants one sentence in the document. It is untrusted like the rest."""
+    def inject(self, task_id: Any, instruction: Any, force: Optional[Dict[str, Any]] = None) -> Task:
+        """Judge mode: Agent 3 plants one sentence in the document. It is untrusted like the rest.
+
+        With ``force`` the judge also names a tool (and optionally a destination and a record):
+        when the agent runs it proposes exactly that call, citing this sentence as its only
+        evidence, whether or not the rule-based planner would have understood the sentence.
+        """
         with self.lock:
             task = self._task(task_id)
             line = clean_instruction(instruction)
+            forced = clean_force(force) if force is not None else None
             if task.meta.get("ran"):
                 raise ValueError("the agent has already read this document; start a new task to inject again")
             injected = task.meta.setdefault("injected", [])
@@ -315,13 +324,16 @@ class Session:
             primary = task.meta.get("primary") or next(iter(task.documents))
             task.documents[primary] = insert_instruction(task.documents[primary], line)
             injected.append(line)
+            if forced is not None:
+                task.meta.setdefault("forced", []).append(dict(forced, instruction=line))
             task.log("document.injected", self.clock(),
                      source={"context": DOCUMENT, "id": primary, "trust": CONTEXTS[DOCUMENT].trust},
                      action=line, decision="-", code="JUDGE_INJECTION",
-                     reason="red team inserted a custom sentence into the document (untrusted content)",
+                     reason="red team inserted a custom sentence into the document (untrusted content)"
+                            + (f"; forced attempt: Agent 1 will propose {forced['tool']}" if forced else ""),
                      risk="medium", data_scope=[f"document:{primary}"])
             self.audit.append("task.inject", {"task_id": task.task_id, "document": primary, "instruction": mask_text(line),
-                                              "actor": ADVERSARY})
+                                              "actor": ADVERSARY, "force": forced})
             return task
 
     def run_agent(self, task_id: Any) -> List[Decision]:
@@ -354,6 +366,7 @@ class Session:
             task.meta["planner"] = planner.name
             steps = planner.plan(task_id=task.task_id, goal=task.goal.text, documents=dict(task.documents),
                                  primary=primary)
+            steps = self._judge_steps(task, primary, steps)
             task.meta["plan"] = [{"tool": s["tool"], "origin": s.get("origin"), "instruction": s.get("instruction")}
                                  for s in steps]
             decisions: List[Decision] = []
@@ -369,6 +382,45 @@ class Session:
                 artifact = produced or artifact
             self._finish_if_settled(task)
             return decisions
+
+    def _judge_steps(self, task: Task, primary: str, steps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Account for every sentence a judge inserted: forced, acted on, or visibly not acted on."""
+        document, trust = task.documents[primary], CONTEXTS[DOCUMENT].trust
+        forced = {f["instruction"]: f for f in task.meta.get("forced", [])}
+        extra: List[Dict[str, Any]] = []
+        for line in task.meta.get("injected", []):
+            start = document.find(line)
+            end = start + len(line)
+            source = {"context": DOCUMENT, "id": primary, "trust": trust, "span": [max(start, 0), max(end, 0)]}
+
+            def from_line(step: Dict[str, Any]) -> bool:
+                where = step.get("instruction")
+                return bool(where and where["doc_id"] == primary and where["start"] < end and where["end"] > start)
+
+            if line in forced:
+                # Agent 1 proposes exactly the judge's tool; drop whatever the planner made of the sentence.
+                steps = [s for s in steps if not from_line(s)]
+                force = forced[line]
+                extra.append(forced_step(goal=task.goal.text, doc_id=primary, document=document, sentence=line,
+                                         force=force, fields=self.monitor.planner.read_fields(document)))
+                task.log("instruction.forced", self.clock(), source=source, action=line, decision="FORCED",
+                         code="FORCED_ATTEMPT",
+                         reason=f"Judge forced the attempt: Agent 1 will propose {force['tool']} and cite this "
+                                f"sentence as its only evidence. The gateway decides as usual",
+                         risk="medium", data_scope=[])
+            elif not any(from_line(s) for s in steps):
+                task.log("instruction.ignored", self.clock(), source=source, action=line, decision="NO ACTION",
+                         code="NO_PROPOSAL",
+                         reason="Agent 1 did not act on this instruction: its rule-based planner produced no tool "
+                                "proposal from it, so nothing reached the gateway and nothing was blocked. "
+                                "Use Force attempt to make Agent 1 propose a specific tool",
+                         risk="low", data_scope=[])
+        if extra:
+            # same position as other document-driven steps: before the final payment draft
+            at = len(steps) - 1 if steps and steps[-1]["tool"] == "create_payment_draft" and \
+                steps[-1].get("origin") == "task" else len(steps)
+            steps = steps[:at] + extra + steps[at:]
+        return steps
 
     def manual_tool_call(self, data: Dict[str, Any]) -> Decision:
         """One proposal typed in by the operator or a judge, signed by Agent 1 like any other."""
@@ -459,6 +511,7 @@ class Session:
                 "task_id": task.task_id, "scenario": task.scenario, "goal": task.goal.text, "state": task.state,
                 "closed_reason": task.closed_reason, "ran": bool(task.meta.get("ran")),
                 "finished": bool(task.meta.get("finished")), "injected": masked(task.meta.get("injected", [])),
+                "forced": masked(task.meta.get("forced", [])),
                 "planner": task.meta.get("planner"), "primary_document": primary,
                 "manifest": m.to_dict(), "manifest_hash": signed.hash, "manifest_key_id": signed.key_id,
                 "capability": {"active": not expired, "expires_at": m.expires_at, "expires_on": "task_completion",
@@ -472,7 +525,8 @@ class Session:
                          "alerted": task.task_id in self.validator.task_alerted},
             }
 
-    def replay(self, scenario_id: Any, instruction: Optional[str] = None) -> Dict[str, Any]:
+    def replay(self, scenario_id: Any, instruction: Optional[str] = None,
+               force: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Red-team replay: the same scenario through the baseline and through the protected gateway.
 
         Both runs happen in throwaway sessions with their own vault, outbox and audit log. The
@@ -482,9 +536,13 @@ class Session:
         if sc is None:
             raise ValueError(f"unknown document scenario '{str(scenario_id)[:40]}'")
         line = clean_instruction(instruction) if instruction is not None else None
-        runs = {name: self._isolated_run(sc.id, line, profile)
+        forced = clean_force(force) if force is not None else None
+        if forced is not None and line is None:
+            raise ValueError("a forced attempt needs an inserted instruction to cite")
+        runs = {name: self._isolated_run(sc.id, line, profile, forced)
                 for name, profile in (("baseline", BASELINE), ("protected", STRICT))}
-        result = {"scenario": sc.to_dict(), "instruction": mask_text(line) if line else None, "at": self.clock(),
+        result = {"scenario": sc.to_dict(), "instruction": mask_text(line) if line else None, "force": forced,
+                  "at": self.clock(),
                   "label": "Counterfactual red-team simulation",
                   "note": "Baseline is an unconstrained mock agent run in a throwaway session. It shows what the "
                           "same agent attempts without TripWire and is never a recommended configuration.",
@@ -496,12 +554,13 @@ class Session:
                 for name in runs}})
         return result
 
-    def _isolated_run(self, scenario_id: str, instruction: Optional[str], profile: str) -> Dict[str, Any]:
+    def _isolated_run(self, scenario_id: str, instruction: Optional[str], profile: str,
+                      force: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         tmp = tempfile.mkdtemp(prefix="tripwire-replay-")
         try:
             s = Session(self.threshold, data_dir=tmp, attack_delay_s=0, auto_lockdown=False, clock=self.clock)
             s.set_profile(profile)
-            task = s.start_task(scenario_id, instruction=instruction)
+            task = s.start_task(scenario_id, instruction=instruction, force=force)
             s.run_agent(task.task_id)
             view = s.task_view(task.task_id)
             view.update(profile=profile, counterfactual=profile == BASELINE,

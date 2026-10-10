@@ -54,7 +54,7 @@ Other commands:
 python -m tripwire invoice-demo                   # PRD demo script in the terminal (replay vs protected)
 python -m tripwire demo                           # original event-mode story
 python -m tripwire attack-demo                    # 10 channel attacks, strict vs baseline
-python -m unittest discover -t . -s tests -v      # 204 tests
+python -m unittest discover -t . -s tests -v      # 213 tests
 ```
 
 If port 8765 is busy: `python -m tripwire serve --port 8800`. The terminal prints the operator recovery code; it is never sent to the browser.
@@ -68,7 +68,7 @@ Full script with talking points: [`docs/DEMO.md`](docs/DEMO.md).
 3. Press **Replay: baseline vs protected**. Baseline: the agent exports 500 customer records and uploads them. Severity **Critical**, breached.
 4. Press **Run Agent 1**. Same agent, same document, same proposals. `export_customer_list` and `upload_external_file` are `BLOCK`ed, and the ₹18,500 payment draft is still created. Severity **Low**, contained; 500 records and 10 canaries protected.
 5. Click the blocked row: `TOOL_FORBIDDEN`, `DATA_OUT_OF_SCOPE`, `INTENT_MISMATCH`, `UNTRUSTED_AUTHORITY`, each with its reason.
-6. Type your own malicious sentence into **Agent 3 · insert an instruction**, assign a new task and run it.
+6. Assign a new task, type your own malicious sentence into **Agent 3 · insert an instruction** and run it. Use **Force attempt** to make Agent 1 propose a specific tool.
 7. Switch to **Event stream** for the original flow: the incident stream crosses 70, one SOC email is simulated, the channel attacks are rejected and the full sequence triggers automatic LOCKDOWN.
 
 Measured output of `python -m tripwire invoice-demo` for the footer scenario:
@@ -138,7 +138,7 @@ All POSTs need `X-TripWire-Client: dashboard`, a same-origin `Origin`, and a JSO
 | `/api/tasks/{id}/approval` | POST | Operator approves or rejects |
 | `/api/tasks/{id}/timeline` | GET | Evidence ledger |
 | `/api/tasks/{id}/report` | GET | Blast-radius report |
-| `/api/tasks/{id}/inject` | POST | Judge mode: insert a sentence into the document |
+| `/api/tasks/{id}/inject` | POST | Judge mode: insert a sentence into the document, optionally with a forced tool attempt |
 | `/api/replay` | POST | Baseline vs protected, in throwaway sessions |
 
 The original endpoints (`/api/state`, `/api/stream/step`, `/api/score`, `/api/firewall`, `/api/recover`, `/api/attack/<id>`, …) are unchanged. See [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -146,7 +146,7 @@ The original endpoints (`/api/state`, `/api/stream/step`, `/api/score`, `/api/fi
 ## Limitations (read before judging)
 
 - **No LLM.** Agent 1 plans with a rule set that deliberately obeys documents. It stands in for a hijacked model. How the controls hold against a real model's behaviour is argued by design (the gateway only sees structured proposals) and is not measured here. See [ADR 0009](docs/adr/0009-deterministic-planner-no-llm.md).
-- **The planner follows only phrasings its rules recognise.** If a judge's sentence produces no proposal, the agent did not act on it; the console shows that plainly.
+- **The planner follows only phrasings its rules recognise.** If a judge's sentence produces no proposal, the ledger shows a `NO ACTION` row ("Agent 1 did not act on this instruction"). The *Force attempt* option makes Agent 1 propose any of the eight tools, citing the sentence as its only evidence, so every request can be put in front of the gateway.
 - **The intent check is rule-based** (effect class and data class per tool). It is not a learned model, and a new tool needs a profile before it can be judged.
 - **Agent 2 is consulted for the semantic stages.** A compromised Agent 2 could miss an intent mismatch, but it cannot widen the manifest, the data scope or the destinations, and it cannot approve anything.
 - **Simulation, not production.** One process, in-memory keys, mock tools, no real email or upload, no OS firewall rules, no user accounts. The console binds to 127.0.0.1.
@@ -176,7 +176,7 @@ tripwire/
   notifications.py  mock outbox and egress log           audit.py    HMAC-chained audit log
   session.py        wiring, task flow, replay, metrics   server.py   stdlib HTTP API
   dashboard.html    single-file offline console
-tests/              204 tests, including PRD acceptance criteria 1-8 (tests/test_acceptance.py)
+tests/              213 tests, including PRD acceptance criteria 1-8 (tests/test_acceptance.py)
 docs/               DEMO.md, DECK_NOTES.md, adr/, reference/ (PRD and deck), screenshots/
 ```
 

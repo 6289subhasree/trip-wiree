@@ -17,8 +17,8 @@ Task mode (PRD 12) adds:
     POST /api/tasks/{id}/approval           {"approval_id", "decision": "approve" | "reject"}
     GET  /api/tasks/{id}/timeline           ordered evidence ledger
     GET  /api/tasks/{id}/report             blast-radius report
-    POST /api/tasks/{id}/inject             judge mode: {"instruction"}
-    POST /api/replay                        {"scenario", "instruction"?}
+    POST /api/tasks/{id}/inject             judge mode: {"instruction", "force"?: {"tool", "destination"?, "record"?}}
+    POST /api/replay                        {"scenario", "instruction"?, "force"?}
 
 The same guard, body limit and validation apply. Responses never contain a signing key, the
 recovery code or an unmasked canary token.
@@ -106,8 +106,8 @@ def task_post(s: Session, task_id: str, tail: Optional[str], data: Dict[str, Any
         decisions = s.run_agent(task_id)
         return {"decisions": [d.to_dict() for d in decisions], "task": s.task_view(task_id)}
     if tail == "/inject":
-        _only(data, "instruction")
-        s.inject(task_id, data.get("instruction"))
+        _only(data, "instruction", "force")
+        s.inject(task_id, data.get("instruction"), data.get("force"))
         return {"task": s.task_view(task_id)}
     if tail == "/approval":
         _only(data, "approval_id", "decision")
@@ -138,8 +138,8 @@ def build_routes(s: Session) -> Dict[str, Callable[[Dict[str, Any], str], Any]]:
         return {"decision": _decision(s.manual_tool_call(data))}
 
     def replay(data, _):
-        _only(data, "scenario", "instruction")
-        return {"replay": s.replay(data.get("scenario"), _opt_text(data, "instruction", 300))}
+        _only(data, "scenario", "instruction", "force")
+        return {"replay": s.replay(data.get("scenario"), _opt_text(data, "instruction", 300), data.get("force"))}
 
     def select(data, _):
         _only(data, "task_id")

@@ -173,9 +173,9 @@ All POST bodies are JSON objects of 4 KB or less. POSTs need `X-TripWire-Client:
 
 ## 11. Testing
 
-`python -m unittest discover -t . -s tests -v` runs 204 tests. The original 54 are unchanged: protocol checks with MAC coverage of each header field; workflow tests for below, at and above the threshold, one email per incident and validator refusal; firewall transitions, throttling, reset-can't-bypass and burning; automatic lockdown and decay; audit tamper and deletion; concurrency (race against BLOCKING, concurrent replay); every attack scenario in both profiles; the bounded and stoppable runner; and the API, including CSRF and input validation. A guided-demo regression test mirrors the dashboard script. CI runs on Ubuntu and Windows with Python 3.10, 3.12 and 3.13.
+`python -m unittest discover -t . -s tests -v` runs 213 tests. The original 54 are unchanged: protocol checks with MAC coverage of each header field; workflow tests for below, at and above the threshold, one email per incident and validator refusal; firewall transitions, throttling, reset-can't-bypass and burning; automatic lockdown and decay; audit tamper and deletion; concurrency (race against BLOCKING, concurrent replay); every attack scenario in both profiles; the bounded and stoppable runner; and the API, including CSRF and input validation. A guided-demo regression test mirrors the dashboard script. CI runs on Ubuntu and Windows with Python 3.10, 3.12 and 3.13.
 
-The 150 task-mode tests cover: contexts and the detector (`test_context`); manifest immutability, signature and "document text cannot expand capabilities" (`test_manifest`); effect-class intent with paraphrases (`test_intent`); one test per decision code, execution counters at 0 for blocked tools, provenance forgery, firewall precedence and an event-mode regression (`test_capability`); the vault and tools with sockets patched to fail (`test_tools`); approvals including agent self-approval and LOCKDOWN after approval (`test_approvals`); lineage and a blast-radius recomputation with independent loops (`test_lineage_report`); scenarios, planner, judge mode and replay (`test_scenarios`); the PRD endpoints, guard, validation, secret leakage and timing (`test_task_api`); and PRD section 13 criteria 1-8 as `test_ac1` .. `test_ac8` (`test_acceptance`).
+The 159 task-mode tests cover: contexts and the detector (`test_context`); manifest immutability, signature and "document text cannot expand capabilities" (`test_manifest`); effect-class intent with paraphrases (`test_intent`); one test per decision code, execution counters at 0 for blocked tools, provenance forgery, firewall precedence and an event-mode regression (`test_capability`); the vault and tools with sockets patched to fail (`test_tools`); approvals including agent self-approval and LOCKDOWN after approval (`test_approvals`); lineage and a blast-radius recomputation with independent loops (`test_lineage_report`); scenarios, planner, judge mode and replay (`test_scenarios`); the PRD endpoints, guard, validation, secret leakage and timing (`test_task_api`); and PRD section 13 criteria 1-8 as `test_ac1` .. `test_ac8` (`test_acceptance`).
 
 ## 12. Trust contexts and provenance
 
@@ -250,6 +250,8 @@ Only `Session.decide_approval()` decides, and the HTTP endpoint fixes the approv
 
 `scenarios.py` renders invoice documents from the vault's records and adds the attack text: footer injection (INV-1042), vendor bank-change notice (INV-1042), a linked supporting document (INV-1044 with SUP-1044), plus a clean invoice and an over-limit invoice (INV-1043, ₹72,000). Judge mode inserts up to three validated one-line sentences into the document before the agent runs.
 
+Every inserted sentence is accounted for in the timeline. If the planner produced a proposal from it, the proposals follow. If it produced none, an `instruction.ignored` row (`NO ACTION`, `NO_PROPOSAL`) says that Agent 1 did not act on it. If the judge attached a *force attempt* (`{"tool", "destination"?, "record"?}`, tool one of the eight), an `instruction.forced` row is written and Agent 1 proposes exactly that tool, with the sentence as its only evidence, in place of whatever the planner made of the sentence. A forced attempt changes what Agent 1 proposes and nothing else: it is a normal `tool.request` and the gateway decides it as usual.
+
 `Session.run_agent()` writes the timeline in PRD order: `task.assigned`, `document.read`, `instruction.detected`, one `tool.decision` per proposal, `task.result`, `task.report`, `task.closed`.
 
 `Session.replay()` runs the scenario twice in throwaway sessions with their own vault, outbox, egress log and audit chain: once in the `baseline` profile, which executes tool requests unchecked and records what the protected gateway would have decided, and once protected. The live session never changes profile. The result is labelled "Counterfactual red-team simulation".
@@ -264,8 +266,8 @@ Only `Session.decide_approval()` decides, and the HTTP endpoint fixes the approv
 | `POST /api/tasks/{id}/agent/run` | `{}` | Agent 1 reads, plans and proposes; 400 on a second run |
 | `POST /api/gateway/tool-call` | `{"task_id", "tool", "args", …}` | One proposal signed by Agent 1 |
 | `POST /api/tasks/{id}/approval` | `{"approval_id", "decision": "approve"\|"reject"}` | 404 if the approval is not this task's; 409 if already decided |
-| `POST /api/tasks/{id}/inject` | `{"instruction"}` | Judge mode; 400 after the agent has run |
-| `POST /api/replay` | `{"scenario", "instruction"?}` | Baseline and protected views |
+| `POST /api/tasks/{id}/inject` | `{"instruction", "force"?}` | Judge mode, optional forced attempt; 400 after the agent has run |
+| `POST /api/replay` | `{"scenario", "instruction"?, "force"?}` | Baseline and protected views |
 
 Unknown body fields are refused. No response carries a signing key, the manifest signature, the recovery code or an unmasked canary.
 

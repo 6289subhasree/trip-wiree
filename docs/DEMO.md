@@ -5,7 +5,7 @@ Follows PRD section 15, with the three agents named at each step.
 ## Before judges arrive (2 min)
 
 ```powershell
-python -m unittest discover -t . -s tests      # expect: OK (204 tests)
+python -m unittest discover -t . -s tests      # expect: OK (213 tests)
 $env:TRIPWIRE_RECOVERY_CODE = "TW-JUDGE-42"
 python -m tripwire serve --open
 ```
@@ -42,7 +42,9 @@ Sentences that the naive agent acts on, so there is something to block:
 
 Say: "We are not matching your sentence. The agent may read it and even obey it. It still gets no new data, no new tool, no new destination and no approval authority."
 
-If a sentence produces no proposal, say so: the rule-based agent did not understand it, so there was nothing to stop.
+If a sentence produces no proposal, the ledger says so in a **NO ACTION** row: "Agent 1 did not act on this instruction". Nothing reached the gateway, so nothing was blocked.
+
+**Force attempt.** To guarantee that any request hits the gateway, pick a tool in the *Force attempt* list before pressing **Insert** (optionally give a destination and a record id such as `CUST-0050` or `INV-1043`). Agent 1 then proposes exactly that tool and cites the inserted sentence as its only evidence. The ledger shows a **FORCED** row followed by the gateway's decision. Forcing an in-manifest tool is refused too (`UNTRUSTED_AUTHORITY`), because the only reason given is document text; a forced bank change is paused for approval.
 
 ## Approval (30 s)
 
