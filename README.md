@@ -59,6 +59,13 @@ The website has four pages, all offline and wired to the live backend:
 
 The original single-page operator console is still available at `/console`.
 
+That is the default path and it needs nothing but Python. **Optional:** the same four pages also exist as a Next.js app in [`frontend/`](frontend/README.md). If you build it, the Python server serves the static export from `frontend/out/` on the same origin; if `frontend/out/` is absent it serves the built-in `tripwire/web/` pages. Node is only needed for the build, never at run time:
+
+```powershell
+cd frontend; npm install; npm run build; cd ..    # optional, needs Node 20+
+python -m tripwire serve --open                   # the banner says which pages are being served
+```
+
 Other commands:
 
 ```powershell
@@ -186,8 +193,10 @@ tripwire/
   firewall.py       NORMAL / BLOCKING / LOCKDOWN         risk.py     risk model and event streams
   notifications.py  mock outbox and egress log           audit.py    HMAC-chained audit log
   session.py        wiring, task flow, replay, metrics   server.py   stdlib HTTP API
-  dashboard.html    single-file offline console
-tests/              213 tests, including PRD acceptance criteria 1-8 (tests/test_acceptance.py)
+  dashboard.html    single-file offline console (/console)
+  web/              built-in website pages (/, /demo, /arena, /evidence), no build step
+frontend/           optional Next.js build of the same four pages (static export, see frontend/README.md)
+tests/              231 tests, including PRD acceptance criteria 1-8 (tests/test_acceptance.py)
 docs/               DEMO.md, DECK_NOTES.md, adr/, reference/ (PRD and deck), screenshots/
 ```
 
