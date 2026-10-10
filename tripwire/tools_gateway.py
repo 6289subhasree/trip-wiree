@@ -53,8 +53,15 @@ COMPLETED = "completed"
 
 
 def mask_canary(token: str) -> str:
-    """Canary values are never shown in full: keep the prefix and the last two characters."""
-    return "TRIPWIRE-CANARY-" + "*" * 6 + token[-2:] if CANARY_RE.fullmatch(token) else "*" * 8
+    """Canary values are never shown in full: keep the prefix and the last two characters.
+
+    The mask has the same length as the token, so character offsets into a masked document
+    still point at the same text.
+    """
+    if not CANARY_RE.fullmatch(token):
+        return "*" * len(token)
+    head, body = token[:16], token[16:]
+    return head + "".join(c if c == "-" else "*" for c in body[:-2]) + body[-2:]
 
 
 def mask_text(text: str) -> str:

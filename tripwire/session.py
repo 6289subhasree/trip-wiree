@@ -22,10 +22,12 @@ from .context import USER_TASK, Labelled
 from .firewall import Firewall, FirewallError
 from .gateway import ACCEPTED, BASELINE, BLOCKED, CODE_HELP, REJECTED, STRICT, Decision, Gateway
 from .manifest import INVOICE_POLICY, ManifestAuthority, PolicyTemplate
-from .notifications import MockEmailService
+from .notifications import EgressLog, MockEmailService
 from .protocol import (ADVERSARY, EMAIL_ACTION, MONITOR, ROUTES, TOOL_GATEWAY, VALIDATOR, AgentKey, KeyRing,
                        Signer)
+from .tools import Toolbox
 from .tools_gateway import ALLOW, BLOCK, REQUIRE_APPROVAL, Task, ToolGateway, ToolRegistry
+from .vault import Vault
 from .risk import DEFAULT_THRESHOLD, STREAMS, WEIGHTS
 
 
@@ -68,6 +70,10 @@ class Session:
         self.registry = ToolRegistry()
         self.tools = ToolGateway(ManifestAuthority(self.clock), self.registry, clock=self.clock, audit=self.audit)
         self.gateway.attach_tools(self.tools, self.validator)
+        self.vault = Vault()
+        self.egress = EgressLog(str(self.data_dir / "egress.jsonl"), clock=self.clock)
+        Toolbox(self.vault, self.outbox, self.egress).register(self.registry)
+        self.tools.vendor_exists = self.vault.vendor_exists
         self._task_n = 0
         self.adversary = Adversary(adversary_key, self.clock)
         self.channel_tap: Deque[Dict[str, Any]] = deque(maxlen=50)
