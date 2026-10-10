@@ -15,6 +15,7 @@ import uuid
 from typing import Any, Callable, Dict, Optional, Tuple
 
 from . import intent as intent_rules
+from .planner import DeterministicPlanner, Planner
 from .protocol import ALERT, EMAIL_ACTION, EMAIL_SEND, TELEMETRY, TOOL_GATEWAY, TOOL_REQUEST, VALIDATOR, Signer
 from .risk import TOOL_WEIGHTS, WEIGHTS, RiskModel
 
@@ -29,6 +30,7 @@ class EventMonitor:
         self.incident: Optional[str] = None     # correlation id of the open incident
         self.incident_delivered = False
         self.last_status = "idle"
+        self.planner: Planner = DeterministicPlanner()   # task mode; rule-based, no model, no network
 
     @property
     def agent_id(self) -> str:
