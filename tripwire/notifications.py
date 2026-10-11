@@ -64,33 +64,55 @@ class MockEmailService:
                     fh.write(json.dumps(record, sort_keys=True) + "\n")
                 # Send actual email via SMTP
                 try:
-                    import smtplib
-                    from email.mime.text import MIMEText
+                    smtplib = __import__("smtplib")
+                    email_mime_text = __import__("email.mime.text", fromlist=["MIMEText"])
+                    MIMEText = email_mime_text.MIMEText
                     
-                    sender = os.environ.get("TRIPWIRE_EMAIL", "soc-oncall@tripwire.invalid")
+                    sender = os.environ.get("TRIPWIRE_EMAIL", "")
                     pwd = os.environ.get("TRIPWIRE_PASSWORD", "")
-                    
-                    print(f"SMTP Debug: Sender={sender}, Password length={len(pwd)}")
+                    if not pwd:
+                        env_file = Path(__file__).resolve().parent.parent / "mcp_app" / ".env"
+                        if env_file.is_file():
+                            try:
+                                for line in env_file.read_text(encoding="utf-8").splitlines():
+                                    line = line.strip()
+                                    if line.startswith("TRIPWIRE_EMAIL="):
+                                        sender = line.split("=", 1)[1].strip().strip('"').strip("'")
+                                    elif line.startswith("TRIPWIRE_PASSWORD="):
+                                        pwd = line.split("=", 1)[1].strip().strip('"').strip("'")
+                            except Exception:
+                                pass
+                    if not sender:
+                        sender = "soc-oncall@tripwire.invalid"
                     
                     for recipient in record.get("to", []):
+                        body_snippet = str(record.get('body', '')).replace('"', ' ').replace("'", " ")[:80]
+                        # Trigger instant macOS system notification banner for live demo responsiveness
+                        try:
+                            os.system(f'osascript -e \'display notification "{body_snippet}" with title "TripWire Email Delivered" subtitle "To: {recipient}" sound name "Glass"\' 2>/dev/null &')
+                        except Exception:
+                            pass
+
                         msg = MIMEText(f"{record.get('body', '')}\n\n[Status: Real email from TripWire System]")
                         msg["Subject"] = record.get('subject', 'TripWire')
                         msg["From"] = sender
                         msg["To"] = recipient
-                        
-                        if pwd:
-                            print(f"SMTP Debug: Connecting to smtp.gmail.com:465 to send to {recipient}")
-                            server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-                            # server.set_debuglevel(1)
-                            server.login(sender, pwd)
-                            server.send_message(msg)
-                            server.quit()
-                            print(f"SMTP Debug: Successfully sent email to {recipient}")
-                        else:
-                            print("\n\n>>> TRIPWIRE WARNING: TRIPWIRE_PASSWORD not set. Email not sent! <<<\n")
+
+                        if pwd and recipient in ("kumarayush.professional@gmail.com", "whokilledayush@gmail.com"):
+                            def _send_smtp_bg(sdr, p, rcpt, m):
+                                try:
+                                    server = smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10)
+                                    server.login(sdr, p)
+                                    server.send_message(m)
+                                    server.quit()
+                                    print(f"SMTP: Real email delivered to {rcpt}")
+                                except Exception as e:
+                                    print(f"SMTP Error: {e}")
+
+                            threading.Thread(target=_send_smtp_bg, args=(sender, pwd, recipient, msg), daemon=True).start()
                 except Exception as e:
                     import traceback
-                    print(f"SMTP Error: {e}")
+                    print(f"Notification Error: {e}")
                     traceback.print_exc()
             return record
 

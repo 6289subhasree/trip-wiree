@@ -68,7 +68,7 @@ CHAT_POLICY = PolicyTemplate(
     goal_effects=("external_egress", "internal_notify"),
     allowed_tools=("send_email", "get_vendor_record"),
     forbidden_tools=("export_customer_list", "get_customer_records", "upload_external_file"),
-    allowed_destinations=("internal-accounting", "employee-email", "kumarayush.professional@gmail.com"),
+    allowed_destinations=("internal-accounting", "employee-email", "hr@employee-email", "kumarayush.professional@gmail.com", "hr@tripwire.com"),
     approval_required=(),
     data_prefixes=("sys-doc-",),
 )

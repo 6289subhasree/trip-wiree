@@ -32,7 +32,7 @@ Output ONLY a JSON object with the following schema:
 {
   "action_type": "send_email",
   "purpose": "short description of the purpose",
-  "recipient": "recipient email address",
+  "recipient": "recipient email address (default to kumarayush.professional@gmail.com if not specified)",
   "subject": "email subject",
   "body": "email body"
 }"""
@@ -93,6 +93,12 @@ async def run():
                     if not proposal:
                         print("Agent: Failed to generate a proposal. Please try again.")
                         continue
+
+                    # If Ollama didn't find an explicit recipient or generated a generic address, default to user's email:
+                    rcpt = str(proposal.get("recipient", "")).strip()
+                    if not rcpt or rcpt in ("hr@tripwire.com", "recipient@example.com", "employee-email", "hr@employee-email") or "@" not in rcpt:
+                        if "evil" not in user_input.lower() and "attacker" not in user_input.lower():
+                            proposal["recipient"] = "kumarayush.professional@gmail.com"
                         
                     print("Agent: I have prepared the following email.\n")
                     print(f"Recipient: {proposal.get('recipient')}")

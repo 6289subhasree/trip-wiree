@@ -88,7 +88,7 @@ If port 8765 is busy: `python -m tripwire serve --port 8800`. The terminal print
 
 ## The 3-minute demo
 
-Full script with talking points: [`docs/DEMO.md`](docs/DEMO.md).
+Full judge runbook & script: [HOW_TO_RUN_DEMO.md](HOW_TO_RUN_DEMO.md) and [`docs/DEMO.md`](docs/DEMO.md).
 
 1. Pick **Invoice Footer Injection** and press **Assign task**. The signed manifest appears: three allowed tools, two records in scope, a ₹50,000 limit, one internal destination.
 2. The invoice is on the left with the planted sentence underlined: *Untrusted · cannot grant authority*.
