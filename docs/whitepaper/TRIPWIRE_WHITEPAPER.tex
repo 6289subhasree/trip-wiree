@@ -46,6 +46,8 @@
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{4pt}
 
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
 \title{
     \Large\bfseries
     TripWire: A Cryptographically Enforced Runtime Security Gateway for Autonomous AI Agents\\[0.35em]
@@ -64,11 +66,17 @@
 
 \maketitle
 
+\vspace{1.5em}
+\renewcommand{\abstractname}{\Large\bfseries Abstract}
 \begin{abstract}
+\normalsize
 As autonomous AI agents acquire kinetic capabilities---such as reading confidential files, modifying databases, and invoking external APIs---traditional security controls reliant on prompt engineering and model alignment have proven structurally insufficient. When agents consume untrusted documents or web pages, adversarial payloads can easily bypass cognitive safety rails, turning the agent into a confused deputy. Because the state space of semantic injection is uncountably infinite, relying on the LLM to self-police its execution reduces to an undecidable halting problem. This paper presents TripWire, a runtime enforcement gateway that physically separates the cognitive reasoning layer from the tool execution layer. Operating on a strict Default-Deny principle, TripWire intercepts all inter-agent and agent-to-tool communications, subjecting them to mathematically deterministic cryptographic and capability constraints. The architecture validates HMAC-SHA256 message authenticity, temporal freshness (30-second TTL), nonce monotonicity, sequence progression, and rate limits (12 burst, 2/sec). Additionally, it enforces provenance-aware task manifests, ensuring that untrusted document inputs cannot independently grant kinetic authority. Real-time evaluation against 214 test scenarios demonstrates deterministic neutralization of forged messages, replay attacks, data exfiltration attempts, and prompt-injected tool invocations. By enforcing boundary constraints independently of the LLM's intent, TripWire delivers an auditable, verifiable containment layer for the zero-trust AI frontier.
 \end{abstract}
 
+\vspace{1em}
 \textbf{Keywords:} AI Agent Security; Runtime Enforcement; HMAC; Capability-Based Security; Prompt Injection; Provenance; Default Deny; Tool Authorization; Security Gateway; Audit Integrity.
+
+\clearpage
 
 \section{Introduction}
 
@@ -281,7 +289,8 @@ TripWire provides deterministic containment across 25 specific attack vectors ta
 \begin{table}[htbp]
 \centering
 \small
-\begin{tabularx}{\textwidth}{l l X l l}
+\renewcommand{\arraystretch}{1.18}
+\begin{tabularx}{\textwidth}{@{} c L{3.1cm} L{3.8cm} L{4.2cm} >{\raggedright\arraybackslash}X @{}}
 \toprule
 \textbf{ID} & \textbf{Attack Vector} & \textbf{Target Component} & \textbf{TripWire Defense Layer} & \textbf{Deterministic Verdict} \\
 \midrule
