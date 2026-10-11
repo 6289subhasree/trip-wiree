@@ -49,6 +49,50 @@ Output ONLY a JSON object with the following schema:
         print(f"Error querying Ollama: {e}")
     return {}
 
+SAFE_RECIPIENTS = {
+    "kumarayush.professional@gmail.com",
+    "employee-email",
+    "hr@employee-email",
+    "internal-accounting",
+    "hr@tripwire.com"
+}
+
+SUSPICIOUS_PATTERNS = (
+    "ignore previous",
+    "ignore all",
+    "system prompt",
+    "evil.com",
+    "attacker",
+    "exfiltrat",
+    "leak",
+    "dump",
+    "steal",
+    "malicious",
+    "bypass",
+    "override",
+    "curse",
+    "swear",
+    "profan",
+    "threat",
+    "hack",
+    "jailbreak"
+)
+
+def check_risk(prompt: str, proposal: dict) -> tuple:
+    rcpt = str(proposal.get("recipient", "")).strip().lower()
+    prompt_lower = prompt.lower()
+    body_lower = str(proposal.get("body", "")).lower()
+
+    if rcpt not in SAFE_RECIPIENTS:
+        return True, f"Recipient '{rcpt}' is outside the trusted corporate policy"
+
+    for pattern in SUSPICIOUS_PATTERNS:
+        if pattern in prompt_lower or pattern in body_lower:
+            return True, f"Suspicious prompt or content pattern '{pattern}'"
+
+    return False, "Safe"
+
+
 async def run():
     print(f"TRIPWIRE V2 — LOCAL AGENT")
     
@@ -104,14 +148,28 @@ async def run():
                     print(f"Recipient: {proposal.get('recipient')}")
                     print(f"Subject: {proposal.get('subject')}\n")
                     print(f"Body:\n{proposal.get('body')}\n")
-                    
                     print("Proposed action:")
                     print("  tool: submit_email")
                     print(f"  purpose: {proposal.get('purpose')}")
                     print(f"  recipient: {proposal.get('recipient')}")
                     
-                    choice = input("\nReview the proposal before execution.\nType 'approve' to continue or 'cancel' to stop: ")
-                    if choice.lower().strip() == 'approve':
+                    is_risky, risk_reason = check_risk(user_input, proposal)
+                    should_execute = False
+
+                    if not is_risky:
+                        print("\n[✓] SAFE ACTION DETECTED — Verified recipient & system policy.")
+                        print("    Auto-approving without human interruption...")
+                        should_execute = True
+                    else:
+                        print(f"\n[⚠️] SECURITY THREAT / ANOMALY DETECTED: {risk_reason}")
+                        print("    Human-in-the-Loop approval strictly required!")
+                        choice = input("\nReview the proposal before execution.\nType 'approve' to submit to Gateway or 'cancel' to stop: ")
+                        if choice.lower().strip() == 'approve':
+                            should_execute = True
+                        else:
+                            print("Action cancelled by operator.")
+
+                    if should_execute:
                         print("Submitting to MCP Gateway...")
                         res = await session.call_tool("submit_email", {
                             "recipient": proposal.get("recipient"),
@@ -131,8 +189,6 @@ async def run():
                                 print(f"Reason: {decision.get('reason')}")
                             elif "decision" in decision and "reason" in decision["decision"]:
                                 print(f"Reason: {decision['decision']['reason']}")
-                    else:
-                        print("Action cancelled.")
                 except EOFError:
                     break
                 except KeyboardInterrupt:
