@@ -165,7 +165,7 @@ def _tool_args(value: Any) -> bool:
         if not isinstance(key, str) or not 0 < len(key) <= 32:
             return False
         if isinstance(item, str):
-            if len(item) > 600:
+            if len(item) > 4096:
                 return False
         elif not (isinstance(item, bool) or _is_number(item)):
             return False

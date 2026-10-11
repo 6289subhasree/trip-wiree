@@ -337,6 +337,7 @@ SAFE_RECIPIENTS = {
     "kumarayush.professional@gmail.com",
     "subhasree6289@gmail.com",
     "toannesha2006@gmail.com",
+    "toannesha@gmail.com",
     "employee-email",
     "hr@employee-email",
     "internal-accounting",

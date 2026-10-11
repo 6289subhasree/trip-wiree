@@ -243,23 +243,33 @@ export default function VantageCLI() {
 
               if (log.type === "envelope" && log.proposal) {
                 return (
-                  <div key={log.id} className="rounded-lg border border-[#ff70a6]/40 bg-[#07080e] p-3 text-[11px] space-y-1.5 font-mono shadow-[0_0_15px_rgba(255,112,166,0.06)]">
-                    <div className="text-[#ff70a6] font-semibold flex items-center justify-between border-b border-[#23253a] pb-1.5">
-                      <span>┌── Proposed Action Envelope ──</span>
+                  <div key={log.id} className="rounded-xl border border-[#ff70a6]/40 bg-[#07080e] p-4 text-[11px] space-y-2 font-mono shadow-[0_0_20px_rgba(255,112,166,0.08)]">
+                    <div className="text-[#ff70a6] font-semibold flex items-center justify-between border-b border-[#23253a] pb-2">
+                      <span className="tracking-wide">┌── Proposed Action Envelope ──────────────────────┐</span>
                       <span className="text-[#8a8f98] font-normal">{log.proposal.tool || "submit_email"}</span>
                     </div>
-                    <div className="text-[#d0d4e4]">
-                      <span className="text-[#8a8f98]">To      :</span> <strong className="text-white">{log.proposal.recipient}</strong>
-                    </div>
-                    <div className="text-[#d0d4e4]">
-                      <span className="text-[#8a8f98]">Subject :</span> <span className="text-[#00e5ff]">{log.proposal.subject}</span>
-                    </div>
-                    <div className="text-[#d0d4e4]">
-                      <span className="text-[#8a8f98]">Purpose :</span> <span className="text-[#a0a5b5]">{log.proposal.purpose}</span>
+                    <div className="space-y-1 py-1 text-[#d0d4e4]">
+                      <div>
+                        <span className="text-[#8a8f98] inline-block w-20">Tool     :</span> <span className="text-[#00e5ff] font-semibold">{log.proposal.tool || "submit_email"}</span>
+                      </div>
+                      <div>
+                        <span className="text-[#8a8f98] inline-block w-20">To       :</span> <strong className="text-white">{log.proposal.recipient}</strong>
+                      </div>
+                      <div>
+                        <span className="text-[#8a8f98] inline-block w-20">Subject  :</span> <span className="text-[#00e5ff]">{log.proposal.subject}</span>
+                      </div>
+                      <div>
+                        <span className="text-[#8a8f98] inline-block w-20">Purpose  :</span> <span className="text-[#a0a5b5]">{log.proposal.purpose}</span>
+                      </div>
                     </div>
                     {log.proposal.body && (
-                      <div className="pt-1.5 border-t border-[#1a1b24] text-[#8a8f98] whitespace-pre-wrap leading-relaxed font-sans bg-[#030407] p-2 rounded">
-                        {log.proposal.body}
+                      <div className="mt-2 pt-2 border-t border-[#1a1b24]">
+                        <div className="text-[#a0a5b5] font-semibold text-[10px] mb-1.5 uppercase tracking-wider">
+                          Drafted Message:
+                        </div>
+                        <div className="p-3.5 border border-[#1f2130] rounded-lg bg-[#030407] text-[#c0c5d5] whitespace-pre-wrap leading-relaxed font-sans text-xs">
+                          {log.proposal.body}
+                        </div>
                       </div>
                     )}
                   </div>
