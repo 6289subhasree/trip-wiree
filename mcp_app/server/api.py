@@ -61,6 +61,8 @@ def gateway_status():
 def set_firewall(req: FirewallRequest):
     if req.mode not in ["NORMAL", "BLOCKING", "LOCKDOWN", "BYPASSED"]:
         raise HTTPException(status_code=400, detail="Invalid firewall mode")
+    if session.firewall.mode == req.mode:
+        return {"status": "success", "mode": req.mode}
     try:
         session.set_firewall(req.mode)
         return {"status": "success", "mode": req.mode}
@@ -255,7 +257,7 @@ def prompt_webhook(req: WebhookRequest):
     elif req.event == "proposal_evaluated":
         level = "danger" if req.is_risky else "safe"
         tag = "THREAT" if req.is_risky else "INTENT"
-        msg = f"Proposal check: {req.risk_reason}" if req.is_risky else f"Proposal verified safe for tool: {req.proposal.get('tool', 'submit_email')}"
+        msg = f"Proposal check: {req.risk_reason}" if req.is_risky else f"Proposal verified safe for tool: {(req.proposal or {}).get('tool', 'submit_email')}"
         recent_stream_logs.append({
             "id": f"log-{time.time()}",
             "time": t_str,
