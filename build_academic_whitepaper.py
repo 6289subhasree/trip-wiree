@@ -448,9 +448,20 @@ BIB_CONTENT = r"""@article{rice1953,
 """
 
 os.makedirs("docs/whitepaper", exist_ok=True)
-with open("docs/whitepaper/tripwire_whitepaper.tex", "w", encoding="utf-8") as f:
-    f.write(TEX_CONTENT)
+if os.path.exists("docs/whitepaper/TRIPWIRE_WHITEPAPER.tex"):
+    with open("docs/whitepaper/TRIPWIRE_WHITEPAPER.tex", "r", encoding="utf-8") as f:
+        content = f.read()
+    with open("docs/whitepaper/tripwire_whitepaper.tex", "w", encoding="utf-8") as f:
+        f.write(content)
 
 with open("docs/whitepaper/references.bib", "w", encoding="utf-8") as f:
     f.write(BIB_CONTENT)
+
+# Compile using tectonic if available
+import subprocess
+try:
+    subprocess.run(["/opt/homebrew/bin/tectonic", "docs/whitepaper/TRIPWIRE_WHITEPAPER.tex"], check=True)
+    print("SUCCESS: TRIPWIRE_WHITEPAPER.pdf generated successfully.")
+except Exception as e:
+    print(f"Compilation notice: {e}")
 
