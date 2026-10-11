@@ -93,6 +93,22 @@ def check_risk(prompt: str, proposal: dict) -> tuple:
     return False, "Safe"
 
 
+def send_webhook(event: str, prompt: str = "", proposal: dict = None, is_risky: bool = False, risk_reason: str = "", outcome: str = "", details: dict = None):
+    try:
+        requests.post("http://localhost:8000/api/prompt_webhook", json={
+            "event": event,
+            "prompt": prompt,
+            "source": "terminal_cli",
+            "proposal": proposal,
+            "is_risky": is_risky,
+            "risk_reason": risk_reason,
+            "outcome": outcome,
+            "details": details
+        }, timeout=1.0)
+    except Exception:
+        pass
+
+
 async def run():
     print(f"TRIPWIRE V2 — LOCAL AGENT")
     
@@ -132,6 +148,9 @@ async def run():
                     if user_input.lower() in ("exit", "quit"):
                         break
                         
+                    # Dispatch live webhook to Defender SOC
+                    send_webhook("prompt_received", prompt=user_input)
+
                     print("\nAgent: Thinking...")
                     proposal = ask_ollama(user_input)
                     if not proposal:
@@ -154,6 +173,7 @@ async def run():
                     print(f"  recipient: {proposal.get('recipient')}")
                     
                     is_risky, risk_reason = check_risk(user_input, proposal)
+                    send_webhook("proposal_evaluated", prompt=user_input, proposal=proposal, is_risky=is_risky, risk_reason=risk_reason)
                     should_execute = False
 
                     if not is_risky:
@@ -181,6 +201,7 @@ async def run():
                         decision = json.loads(res.content[0].text)
                         
                         outcome = decision.get("decision", {}).get("outcome") if "decision" in decision else decision.get("outcome", "UNKNOWN")
+                        send_webhook("gateway_decision", prompt=user_input, proposal=proposal, outcome=outcome, details=decision)
                         if outcome == "ACCEPTED" or outcome == "BYPASSED":
                             print(f"\n[+] SUCCESS! Execution {outcome}")
                         else:

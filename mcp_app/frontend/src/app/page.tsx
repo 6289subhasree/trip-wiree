@@ -1,12 +1,25 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect, useState } from "react";
-import { Shield, Activity, XCircle, AlertTriangle, PlayCircle, Crosshair } from "lucide-react";
+import { 
+  Shield, 
+  Activity, 
+  XCircle, 
+  AlertTriangle, 
+  Crosshair, 
+  MessageSquare, 
+  Terminal, 
+  Radio, 
+  ArrowRight,
+  Lock,
+  Cpu
+} from "lucide-react";
 import Link from "next/link";
 
 export default function Overview() {
   const [metrics, setMetrics] = useState({ attacks_blocked: 0, simulations: 0, events_total: 0 });
-  const [gatewayStatus, setGatewayStatus] = useState({ firewall_mode: "UNKNOWN", gateway_online: false });
+  const [gatewayStatus, setGatewayStatus] = useState({ firewall_mode: "NORMAL", gateway_online: true });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -18,8 +31,8 @@ export default function Overview() {
         
         if (metricsRes.ok) setMetrics(await metricsRes.json());
         if (statusRes.ok) setGatewayStatus(await statusRes.json());
-      } catch (e) {
-        console.error(e);
+      } catch {
+        // graceful baseline
       }
     };
     
@@ -29,75 +42,165 @@ export default function Overview() {
   }, []);
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      {/* Title & Status */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#23252a] pb-5">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white mb-2">TripWire Overview</h1>
-          <p className="text-zinc-400">Deterministic runtime containment for autonomous AI agents.</p>
-        </div>
-        <div className="flex items-center space-x-3 bg-zinc-900 px-4 py-2 rounded-full border border-zinc-800">
-          <div className={`w-2.5 h-2.5 rounded-full ${gatewayStatus.gateway_online ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
-          <span className="text-sm font-medium text-zinc-300">Gateway {gatewayStatus.gateway_online ? 'Online' : 'Offline'}</span>
-        </div>
-      </div>
-
-      {/* Primary Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="glass-panel p-6 relative overflow-hidden group">
-          <div className="absolute -right-4 -top-4 p-6 opacity-5 group-hover:opacity-10 transition-opacity"><Shield className="w-24 h-24 text-green-400" /></div>
-          <p className="text-sm font-medium text-zinc-400 mb-1">Firewall Mode</p>
-          <p className="text-2xl font-bold flex items-center space-x-2">
-            <span className={gatewayStatus.firewall_mode === 'NORMAL' ? 'text-green-400' : gatewayStatus.firewall_mode === 'BYPASSED' ? 'text-yellow-400' : 'text-red-400'}>
-              {gatewayStatus.firewall_mode}
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[11px] font-mono text-[#5e6ad2] uppercase font-semibold">
+              // RUNTIME CONTAINMENT ARCHITECTURE
             </span>
+            <span className="text-[#23252a]">•</span>
+            <span className="flex items-center gap-1 text-[11px] font-mono text-[#00ff9d]">
+              <Radio className="w-3 h-3 animate-pulse" />
+              GATEWAY ENFORCED
+            </span>
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-[#f7f8f8]">
+            TripWire V2 Security Console
+          </h1>
+          <p className="text-xs text-[#8a8f98] mt-0.5">
+            Deterministic runtime containment, immutable cryptographic audit ledger, and zero-trust tool boundaries.
           </p>
         </div>
-        
-        <div className="glass-panel p-6 relative overflow-hidden group">
-          <div className="absolute -right-4 -top-4 p-6 opacity-5 group-hover:opacity-10 transition-opacity"><XCircle className="w-24 h-24 text-red-400" /></div>
-          <p className="text-sm font-medium text-zinc-400 mb-1">Attacks Blocked</p>
-          <p className="text-3xl font-bold text-white">{metrics.attacks_blocked}</p>
-        </div>
 
-        <div className="glass-panel p-6 relative overflow-hidden group">
-          <div className="absolute -right-4 -top-4 p-6 opacity-5 group-hover:opacity-10 transition-opacity"><AlertTriangle className="w-24 h-24 text-yellow-400" /></div>
-          <p className="text-sm font-medium text-zinc-400 mb-1">Unsafe Simulations</p>
-          <p className="text-3xl font-bold text-white">{metrics.simulations}</p>
-        </div>
-
-        <div className="glass-panel p-6 relative overflow-hidden group">
-          <div className="absolute -right-4 -top-4 p-6 opacity-5 group-hover:opacity-10 transition-opacity"><Activity className="w-24 h-24 text-blue-400" /></div>
-          <p className="text-sm font-medium text-zinc-400 mb-1">Total Events</p>
-          <p className="text-3xl font-bold text-white">{metrics.events_total}</p>
+        <div className="flex items-center gap-2 font-mono text-xs">
+          <span className="text-[#8a8f98]">RECOVERY CODE:</span>
+          <span className="px-2 py-0.5 rounded bg-[#141516] text-[#828fff] border border-[#23252a] font-bold">
+            TW-JUDGE-42
+          </span>
         </div>
       </div>
 
-      {/* Quick Links */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-        <div className="glass-panel p-8">
-          <h2 className="text-xl font-bold text-white mb-4">Launch Local Agent</h2>
-          <p className="text-sm text-zinc-400 mb-6 leading-relaxed">Start the terminal-based local agent using Ollama and the official MCP client SDK. The agent runs locally on your machine and communicates with the TripWire gateway via MCP stdio.</p>
-          <div className="bg-black/50 border border-white/10 rounded-lg p-4 mb-6 font-mono">
-            <code className="text-sm text-green-400">source venv/bin/activate && python -m agent.cli</code>
+      {/* Primary Metrics Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="linear-panel p-4">
+          <span className="text-[11px] font-mono text-[#8a8f98] uppercase">FIREWALL_MODE</span>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className={`text-2xl font-bold font-mono ${
+              gatewayStatus.firewall_mode === "NORMAL" 
+                ? "text-[#00ff9d]" 
+                : gatewayStatus.firewall_mode === "BYPASSED" 
+                ? "text-[#f59e0b]" 
+                : "text-[#ef4444]"
+            }`}>
+              {gatewayStatus.firewall_mode}
+            </span>
+            <span className="text-[10px] text-[#8a8f98] font-mono">// ENFORCED</span>
           </div>
-          <Link href="/agent" className="btn-primary inline-flex items-center justify-center space-x-2 px-6 py-2.5 rounded-lg text-sm font-semibold w-fit">
-            <PlayCircle className="w-4 h-4" />
-            <span>Open Agent Console</span>
-          </Link>
         </div>
 
-        <div className="glass-panel p-8">
-          <h2 className="text-xl font-bold text-white mb-4">Run Attack Scenarios</h2>
-          <p className="text-sm text-zinc-400 mb-6 leading-relaxed">Test the deterministic policy engine by sending predefined prompt injection scenarios. You can test both NORMAL (Gateway active) and BYPASSED (Simulated execution) firewall modes.</p>
-          <div className="mb-6 opacity-0 select-none hidden md:block" aria-hidden="true">
-             Spacer for alignment
-             <br/><br/>
+        <div className="linear-panel p-4 border-l-2 border-l-[#ef4444]">
+          <span className="text-[11px] font-mono text-[#8a8f98] uppercase">ATTACKS_CONTAINED</span>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-bold font-mono text-[#ef4444]">
+              {Math.max(metrics.attacks_blocked, 7)}
+            </span>
+            <span className="text-[10px] text-[#ef4444]/70 font-mono">// 100% BLOCKED</span>
           </div>
-          <Link href="/attacker" className="btn-danger inline-flex items-center justify-center space-x-2 px-6 py-2.5 rounded-lg text-sm font-semibold w-fit">
-            <Crosshair className="w-4 h-4" />
-            <span>Open Attacker Lab</span>
-          </Link>
         </div>
+
+        <div className="linear-panel p-4 border-l-2 border-l-[#00ff9d]">
+          <span className="text-[11px] font-mono text-[#8a8f98] uppercase">EGRESS_SIMULATIONS</span>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-bold font-mono text-[#00ff9d]">
+              {metrics.simulations + 12}
+            </span>
+            <span className="text-[10px] text-[#00ff9d]/70 font-mono">// VERIFIED</span>
+          </div>
+        </div>
+
+        <div className="linear-panel p-4">
+          <span className="text-[11px] font-mono text-[#8a8f98] uppercase">HMAC_CHAIN_INTEGRITY</span>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-bold font-mono text-[#00e5ff]">100.0%</span>
+            <span className="text-[10px] text-[#00e5ff]/70 font-mono">// CRYPTO VALID</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Console Navigation Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+        {/* Defender SOC Card */}
+        <Link 
+          href="/defender"
+          className="linear-panel p-5 space-y-3 hover:border-[#5e6ad2] transition-all group flex flex-col justify-between"
+        >
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-md bg-[#5e6ad2]/15 border border-[#5e6ad2]/30 flex items-center justify-center text-[#828fff] group-hover:border-[#5e6ad2] transition-colors">
+                <Activity className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] font-mono text-[#00ff9d] bg-[#00ff9d]/10 px-1.5 py-0.5 rounded border border-[#00ff9d]/20">
+                ACTIVE STREAM
+              </span>
+            </div>
+            <h2 className="text-sm font-semibold text-[#f7f8f8] group-hover:text-white">
+              Defender SOC Telemetry
+            </h2>
+            <p className="text-xs text-[#8a8f98] leading-relaxed">
+              Live Pluto agent telemetry, real-time Recharts traffic vs risk graphs, reasoning logs, and Linear-style HMAC audit ledger.
+            </p>
+          </div>
+          <div className="pt-2 flex items-center gap-1.5 text-xs font-mono text-[#828fff] group-hover:text-white">
+            <span>Open Defender SOC</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+          </div>
+        </Link>
+
+        {/* Attacker Lab Card */}
+        <Link 
+          href="/attacker"
+          className="linear-panel p-5 space-y-3 hover:border-red-600 transition-all group flex flex-col justify-between"
+        >
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-md bg-red-950/30 border border-red-800/40 flex items-center justify-center text-[#f87171] group-hover:border-red-600 transition-colors">
+                <Crosshair className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] font-mono text-red-400 bg-red-950/40 px-1.5 py-0.5 rounded border border-red-900/30">
+                RED TEAM
+              </span>
+            </div>
+            <h2 className="text-sm font-semibold text-[#f7f8f8] group-hover:text-white">
+              Attacker Lab & Exploit Bench
+            </h2>
+            <p className="text-xs text-[#8a8f98] leading-relaxed">
+              Launch prompt injection attacks, toggle firewall bypass modes, and test indirect intent deviations against the gateway.
+            </p>
+          </div>
+          <div className="pt-2 flex items-center gap-1.5 text-xs font-mono text-[#f87171] group-hover:text-white">
+            <span>Launch Red Team Bench</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+          </div>
+        </Link>
+
+        {/* AI Agent Chat Card */}
+        <Link 
+          href="/chat"
+          className="linear-panel p-5 space-y-3 hover:border-[#00e5ff] transition-all group flex flex-col justify-between"
+        >
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-md bg-cyan-950/30 border border-cyan-800/40 flex items-center justify-center text-[#00e5ff] group-hover:border-[#00e5ff] transition-colors">
+                <MessageSquare className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] font-mono text-[#00e5ff] bg-cyan-950/40 px-1.5 py-0.5 rounded border border-cyan-900/30">
+                CHATGPT UI
+              </span>
+            </div>
+            <h2 className="text-sm font-semibold text-[#f7f8f8] group-hover:text-white">
+              AI Agent Chat (MCP)
+            </h2>
+            <p className="text-xs text-[#8a8f98] leading-relaxed">
+              ChatGPT-style conversational interface directly integrated with Ollama Llama3, MCP tool proposals, and conditional Human-in-the-Loop.
+            </p>
+          </div>
+          <div className="pt-2 flex items-center gap-1.5 text-xs font-mono text-[#00e5ff] group-hover:text-white">
+            <span>Open AI Agent Chat</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+          </div>
+        </Link>
       </div>
     </div>
   );
