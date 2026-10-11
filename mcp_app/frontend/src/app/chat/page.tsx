@@ -1,29 +1,35 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import {
+  PromptInput,
+  PromptInputAction,
+  PromptInputActions,
+  PromptInputTextarea,
+} from "@/components/prompt-kit/prompt-input";
+import { Button } from "@/components/ui/button";
 import { 
-  Send, 
+  ArrowUp, 
+  Paperclip, 
+  Square, 
+  X, 
   Bot, 
   User, 
-  ShieldCheck, 
-  ShieldAlert, 
-  AlertTriangle, 
+  Terminal, 
   CheckCircle2, 
   XCircle, 
+  AlertTriangle, 
   Sparkles, 
-  RotateCcw, 
-  Terminal,
-  Clock,
-  Shield,
-  Layers
+  Radio
 } from "lucide-react";
+import { useRef, useState, useEffect } from "react";
 
 interface Message {
   id: string;
   sender: "user" | "assistant";
   text: string;
   timestamp: string;
+  files?: string[];
   proposal?: any;
   is_risky?: boolean;
   risk_reason?: string;
@@ -41,8 +47,10 @@ export default function ChatPage() {
     }
   ]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
   const [firewallMode, setFirewallMode] = useState("NORMAL");
+  const uploadInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -54,31 +62,54 @@ export default function ChatPage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages, isLoading]);
 
-  const sendMessage = async (textToSend?: string, forceApprove: boolean = false) => {
-    const prompt = (textToSend || input).trim();
-    if (!prompt) return;
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+      const newFiles = Array.from(event.target.files);
+      setFiles((prev) => [...prev, ...newFiles]);
+    }
+  };
 
-    if (!textToSend) setInput("");
+  const handleRemoveFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+    if (uploadInputRef?.current) {
+      uploadInputRef.current.value = "";
+    }
+  };
 
-    const userMsgId = `user-${Date.now()}`;
+  const handleSubmit = async (textOverride?: string, forceApprove: boolean = false) => {
+    const promptText = (textOverride || input).trim();
+    if (!promptText && files.length === 0) return;
+
+    const fileNames = files.map(f => f.name);
+    let fullPrompt = promptText;
+    if (fileNames.length > 0) {
+      fullPrompt = `[Attached files: ${fileNames.join(", ")}]\n${promptText}`;
+    }
+
+    if (!textOverride) {
+      setInput("");
+      setFiles([]);
+    }
+
     const userMsg: Message = {
-      id: userMsgId,
+      id: `user-${Date.now()}`,
       sender: "user",
-      text: prompt,
+      text: promptText || `Processed ${fileNames.length} attached file(s)`,
+      files: fileNames,
       timestamp: new Date().toLocaleTimeString()
     };
 
-    setMessages(prev => [...prev, userMsg]);
-    setLoading(true);
+    setMessages((prev) => [...prev, userMsg]);
+    setIsLoading(true);
 
     try {
       const res = await fetch("http://localhost:8000/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          message: prompt,
+          message: fullPrompt,
           force_approve: forceApprove 
         })
       });
@@ -97,10 +128,10 @@ export default function ChatPage() {
         needs_approval: data.decision?.outcome === "REQUIRES_APPROVAL"
       };
 
-      setMessages(prev => [...prev, assistantMsg]);
+      setMessages((prev) => [...prev, assistantMsg]);
     } catch {
-      // Fallback response for offline demonstration
-      const isBad = prompt.toLowerCase().includes("evil.com") || prompt.toLowerCase().includes("attacker") || prompt.toLowerCase().includes("ignore");
+      // Offline fallback simulation
+      const isBad = fullPrompt.toLowerCase().includes("evil.com") || fullPrompt.toLowerCase().includes("attacker") || fullPrompt.toLowerCase().includes("ignore");
       const assistantMsg: Message = {
         id: `assistant-${Date.now()}`,
         sender: "assistant",
@@ -111,7 +142,7 @@ export default function ChatPage() {
         proposal: {
           recipient: isBad ? "attacker@evil.com" : "kumarayush.professional@gmail.com",
           subject: isBad ? "Exfiltrated System Data" : "Notification",
-          body: prompt
+          body: fullPrompt
         },
         is_risky: isBad,
         risk_reason: isBad ? "Unauthorized destination domain" : "Safe",
@@ -120,15 +151,14 @@ export default function ChatPage() {
           reason: isBad ? "Recipient attacker@evil.com is not allowlisted" : "Allowlisted corporate destination"
         }
       };
-      setMessages(prev => [...prev, assistantMsg]);
+      setMessages((prev) => [...prev, assistantMsg]);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   const handleApprove = async (msg: Message) => {
-    // Re-send the original prompt with force_approve = true
-    await sendMessage(msg.proposal?.body || msg.text, true);
+    await handleSubmit(msg.proposal?.body || msg.text, true);
   };
 
   const starterPrompts = [
@@ -159,7 +189,7 @@ export default function ChatPage() {
         </div>
 
         <div className="flex items-center gap-2 text-xs font-mono">
-          <span className="text-[#8a8f98]">FIREWALL:</span>
+          <span className="text-[#8a8f98]">GATEWAY:</span>
           <span className={`px-2 py-0.5 rounded border text-[11px] font-bold ${
             firewallMode === "NORMAL" 
               ? "bg-[#00ff9d]/10 text-[#00ff9d] border-[#00ff9d]/30" 
@@ -170,7 +200,7 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* Chat Messages Container */}
+      {/* Chat Messages Stream */}
       <div className="flex-1 overflow-y-auto space-y-4 pr-2">
         {messages.map((m) => {
           const isUser = m.sender === "user";
@@ -192,6 +222,18 @@ export default function ChatPage() {
               )}
 
               <div className={`space-y-2 max-w-[85%] ${isUser ? "items-end" : "items-start"}`}>
+                {/* User file badges */}
+                {isUser && m.files && m.files.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 justify-end">
+                    {m.files.map((fname, idx) => (
+                      <span key={idx} className="bg-[#141516] border border-[#23252a] text-[10px] font-mono text-[#8a8f98] px-2 py-0.5 rounded flex items-center gap-1">
+                        <Paperclip className="w-3 h-3 text-[#5e6ad2]" />
+                        {fname}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 {/* Bubble text */}
                 <div className={`p-4 rounded-xl text-xs leading-relaxed ${
                   isUser 
@@ -201,7 +243,7 @@ export default function ChatPage() {
                   <p className="whitespace-pre-wrap">{m.text}</p>
                 </div>
 
-                {/* MCP Tool Proposal & Gateway Telemetry Card (For Assistant) */}
+                {/* MCP Tool Proposal Card */}
                 {!isUser && m.proposal && (
                   <div className="linear-panel p-3.5 space-y-2.5 text-xs font-mono border-l-2 border-l-[#5e6ad2] bg-[#08090a]">
                     <div className="flex items-center justify-between border-b border-[#23252a] pb-2 text-[11px]">
@@ -232,7 +274,7 @@ export default function ChatPage() {
                       <div className="truncate"><strong className="text-[#f7f8f8]">Body:</strong> {m.proposal.body}</div>
                     </div>
 
-                    {/* Risk Notice & HITL Approval Button */}
+                    {/* HITL Dialog */}
                     {isPendingApproval && (
                       <div className="mt-3 pt-2 border-t border-[#23252a] space-y-2">
                         <div className="text-[11px] text-[#f59e0b] flex items-center gap-1.5 font-semibold">
@@ -266,28 +308,16 @@ export default function ChatPage() {
           );
         })}
 
-        {loading && (
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#5e6ad2]/15 border border-[#5e6ad2]/30 flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(94,106,210,0.2)]">
-              <Bot className="w-4 h-4 text-[#828fff] animate-pulse" />
-            </div>
-            <div className="linear-panel p-3.5 rounded-xl text-xs font-mono text-[#8a8f98] flex items-center gap-2">
-              <RotateCcw className="w-3.5 h-3.5 animate-spin text-[#00e5ff]" />
-              Agent reasoning & evaluating policy against TripWire Gateway...
-            </div>
-          </div>
-        )}
-
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Starter Prompts Carousel */}
+      {/* Starter Prompts */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 shrink-0 scrollbar-none">
         <span className="text-[10px] font-mono text-[#62666d] uppercase shrink-0">STARTERS:</span>
         {starterPrompts.map((s, idx) => (
           <button
             key={idx}
-            onClick={() => sendMessage(s.prompt)}
+            onClick={() => handleSubmit(s.prompt)}
             className="text-[11px] font-mono bg-[#0f1011] hover:bg-[#141516] text-[#8a8f98] hover:text-[#f7f8f8] px-2.5 py-1 rounded-md border border-[#23252a] shrink-0 transition-colors"
           >
             {s.label}
@@ -295,29 +325,83 @@ export default function ChatPage() {
         ))}
       </div>
 
-      {/* Chat Input Bar */}
-      <div className="linear-panel p-2 flex items-center gap-2 shrink-0">
-        <textarea
+      {/* PromptKit PromptInput Component Suite */}
+      <div className="shrink-0 pt-1">
+        <PromptInput
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              sendMessage();
-            }
-          }}
-          placeholder="Ask the agent to draft or send an email (e.g. 'Apply for sick leave to hr@tripwire.com')..."
-          rows={1}
-          className="flex-1 bg-transparent border-none text-xs text-[#f7f8f8] placeholder-[#62666d] focus:outline-none resize-none px-2 py-1 font-sans"
-        />
-
-        <button
-          onClick={() => sendMessage()}
-          disabled={loading || !input.trim()}
-          className="p-2 linear-btn-primary rounded-md disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+          onValueChange={setInput}
+          isLoading={isLoading}
+          onSubmit={() => handleSubmit()}
+          className="w-full max-w-4xl mx-auto bg-[#0f1011] border border-[#23252a] rounded-2xl shadow-2xl focus-within:border-[#5e6ad2] focus-within:ring-1 focus-within:ring-[#5e6ad2]/30"
         >
-          <Send className="w-4 h-4" />
-        </button>
+          {files.length > 0 && (
+            <div className="flex flex-wrap gap-2 pb-2">
+              {files.map((file, index) => (
+                <div
+                  key={index}
+                  className="bg-[#141516] border border-[#23252a] text-[#f7f8f8] flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-mono"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Paperclip className="size-3.5 text-[#5e6ad2]" />
+                  <span className="max-w-[140px] truncate">{file.name}</span>
+                  <button
+                    onClick={() => handleRemoveFile(index)}
+                    className="hover:bg-white/10 rounded-full p-0.5 transition-colors text-[#8a8f98] hover:text-white"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <PromptInputTextarea 
+            placeholder="Ask TripWire agent to draft, send email, or test policy..." 
+          />
+
+          <PromptInputActions className="flex items-center justify-between gap-2 pt-2 border-t border-[#23252a]/60">
+            <PromptInputAction tooltip="Attach files">
+              <label
+                htmlFor="file-upload"
+                className="hover:bg-white/5 flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg transition-colors border border-transparent hover:border-[#23252a]"
+              >
+                <input
+                  ref={uploadInputRef}
+                  type="file"
+                  multiple
+                  onChange={handleFileChange}
+                  className="hidden"
+                  id="file-upload"
+                />
+                <Paperclip className="text-[#8a8f98] hover:text-[#5e6ad2] size-4 transition-colors" />
+              </label>
+            </PromptInputAction>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono text-[#62666d] hidden sm:inline">
+                Enter to send · Shift+Enter for newline
+              </span>
+
+              <PromptInputAction
+                tooltip={isLoading ? "Stop generation" : "Send message"}
+              >
+                <Button
+                  variant="default"
+                  size="icon"
+                  className="h-8 w-8 rounded-full bg-[#5e6ad2] hover:bg-[#828fff] text-white shadow-[0_0_12px_rgba(94,106,210,0.3)] transition-all cursor-pointer"
+                  onClick={() => handleSubmit()}
+                  disabled={!input.trim() && files.length === 0 && !isLoading}
+                >
+                  {isLoading ? (
+                    <Square className="size-4 fill-current text-white animate-pulse" />
+                  ) : (
+                    <ArrowUp className="size-4 text-white" />
+                  )}
+                </Button>
+              </PromptInputAction>
+            </div>
+          </PromptInputActions>
+        </PromptInput>
       </div>
     </div>
   );
