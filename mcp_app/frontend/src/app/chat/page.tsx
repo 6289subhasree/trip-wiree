@@ -29,18 +29,18 @@ interface Message {
 }
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "msg-welcome",
-      sender: "assistant",
-      text: "TripWire runtime containment agent. You can ask me to draft emails or test corporate communication policies.",
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetch("http://localhost:8000/api/gateway/status")
+      .then(r => r.json())
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -147,20 +147,27 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] max-w-2xl mx-auto">
-      {/* Subtle Top Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-[#23252a]/60 shrink-0">
-        <div>
-          <h1 className="text-sm font-medium text-[#f7f8f8]">
-            Agent Chat
-          </h1>
-          <p className="text-[11px] text-[#62666d]">
-            llama3 · containment active
-          </p>
-        </div>
-      </div>
-
       {/* Messages Stream */}
-      <div className="flex-1 overflow-y-auto py-6 space-y-5 pr-1">
+      <div className="flex-1 overflow-y-auto py-4 space-y-5 pr-1 flex flex-col justify-end">
+        {messages.length === 0 && (
+          <div className="my-auto flex flex-col items-center justify-center text-center space-y-4 py-12">
+            <div className="text-lg font-medium text-[#f7f8f8]">
+              How can I help you today?
+            </div>
+            <div className="flex flex-wrap gap-2 justify-center max-w-lg">
+              {starterPrompts.map((s, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleSubmit(s.prompt)}
+                  className="text-xs text-[#8a8f98] hover:text-[#f7f8f8] bg-[#0f1011] hover:bg-[#141516] border border-[#23252a] px-3.5 py-1.5 rounded-full transition-colors cursor-pointer"
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {messages.map((m) => {
           const isUser = m.sender === "user";
           const outcome = m.decision?.outcome || "";
@@ -240,21 +247,6 @@ export default function ChatPage() {
 
         <div ref={messagesEndRef} />
       </div>
-
-      {/* Subtle Starter Pills */}
-      {messages.length <= 2 && (
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-3 shrink-0 scrollbar-none">
-          {starterPrompts.map((s, idx) => (
-            <button
-              key={idx}
-              onClick={() => handleSubmit(s.prompt)}
-              className="text-[11px] text-[#8a8f98] hover:text-[#f7f8f8] bg-[#0f1011] hover:bg-[#141516] border border-[#23252a] px-3 py-1 rounded-full transition-colors whitespace-nowrap cursor-pointer"
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Minimal PromptKit Input Container */}
       <div className="shrink-0 pb-3">
