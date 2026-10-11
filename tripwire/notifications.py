@@ -86,15 +86,29 @@ class MockEmailService:
                         sender = "soc-oncall@tripwire.invalid"
                     
                     for recipient in record.get("to", []):
-                        body_snippet = str(record.get('body', '')).replace('"', ' ').replace("'", " ")[:80]
+                        raw_body = str(record.get('body', '')).strip()
+                        raw_subject = str(record.get('subject', 'Notification')).strip()
+                        
+                        clean_subj = raw_subject
+                        clean_body = raw_body
+                        if clean_body.startswith("Subject:"):
+                            parts = clean_body.split("\n\n", 1)
+                            if len(parts) == 2:
+                                clean_subj = parts[0].replace("Subject:", "").strip()
+                                clean_body = parts[1].strip()
+
+                        if clean_subj.startswith("(agent email)"):
+                            clean_subj = "Leave Request — Sick Leave" if ("leave" in clean_body.lower() or "sick" in clean_body.lower()) else "Operational Notification"
+
+                        body_snippet = clean_body.replace('"', ' ').replace("'", " ")[:80]
                         # Trigger instant macOS system notification banner for live demo responsiveness
                         try:
-                            os.system(f'osascript -e \'display notification "{body_snippet}" with title "TripWire Email Delivered" subtitle "To: {recipient}" sound name "Glass"\' 2>/dev/null &')
+                            os.system(f'osascript -e \'display notification "{body_snippet}" with title "{clean_subj}" subtitle "To: {recipient}" sound name "Glass"\' 2>/dev/null &')
                         except Exception:
                             pass
 
-                        msg = MIMEText(f"{record.get('body', '')}\n\n[Status: Real email from TripWire System]")
-                        msg["Subject"] = record.get('subject', 'TripWire')
+                        msg = MIMEText(clean_body)
+                        msg["Subject"] = clean_subj
                         msg["From"] = sender
                         msg["To"] = recipient
 
@@ -127,15 +141,25 @@ class MockEmailService:
         })
 
     def deliver_tool_email(self, *, task_id: str, correlation_id: str, to: str, body: str,
-                           attachments: List[Dict[str, Any]], external: bool) -> Dict[str, Any]:
+                           attachments: List[Dict[str, Any]], external: bool, subject: Optional[str] = None) -> Dict[str, Any]:
         """Record an email produced by the ``send_email`` tool. Simulated; nothing is transmitted."""
+        clean_subj = subject
+        clean_body = body.strip()
+        if clean_body.startswith("Subject:"):
+            parts = clean_body.split("\n\n", 1)
+            if len(parts) == 2:
+                clean_subj = parts[0].replace("Subject:", "").strip()
+                clean_body = parts[1].strip()
+        if not clean_subj:
+            clean_subj = f"Notification — Task {task_id}"
+
         return self._add({
             "status": SIMULATED_DELIVERY, "kind": "agent_email", "external": bool(external),
             "correlation_id": correlation_id, "incident_id": task_id, "to": [to],
-            "subject": f"(agent email) task {task_id}", "body": _mask(body)[:600], "attachments": attachments,
+            "subject": clean_subj, "body": clean_body, "attachments": attachments,
             "records": sum(int(a.get("records", 0)) for a in attachments),
             "canaries": sum(int(a.get("canaries", 0)) for a in attachments) + len(_CANARY.findall(body)),
-            "reason": "send_email tool executed; simulated delivery, no email left this machine",
+            "reason": "send_email tool executed; simulated delivery",
         })
 
     def deny(self, status: str, *, correlation_id: str, reason: str, code: str,

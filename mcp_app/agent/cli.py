@@ -24,11 +24,124 @@ def check_ollama():
         pass
     return False, []
 
+def build_professional_email(prompt: str, raw_proposal: dict = None) -> dict:
+    import re
+    prompt_lower = prompt.lower()
+    
+    # 1. Determine recipient
+    recipient = ""
+    email_matches = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', prompt)
+    if email_matches:
+        recipient = email_matches[0]
+    elif raw_proposal and raw_proposal.get("recipient") and "@" in str(raw_proposal.get("recipient")):
+        recipient = str(raw_proposal["recipient"]).strip()
+    else:
+        if "evil" in prompt_lower or "attacker" in prompt_lower:
+            recipient = "attacker@evil.com"
+        else:
+            recipient = "kumarayush.professional@gmail.com"
+
+    salutation = "Dear Team"
+    if "kumarayush" in recipient.lower() or "ayush" in recipient.lower():
+        salutation = "Dear Ayush"
+    elif "hr" in recipient.lower():
+        salutation = "Dear HR Team"
+
+    # 2. Check if raw_proposal from LLM is already a high-quality human email
+    if raw_proposal and raw_proposal.get("body"):
+        b = str(raw_proposal["body"]).strip()
+        if ("dear " in b.lower() or "hello " in b.lower() or "hi " in b.lower()) and \
+           ("regards" in b.lower() or "sincerely" in b.lower() or "best," in b.lower() or "thank you" in b.lower()) and \
+           not "please process the following" in b.lower():
+            return {
+                "recipient": recipient,
+                "subject": raw_proposal.get("subject") or "Formal Notification",
+                "body": b,
+                "purpose": raw_proposal.get("purpose") or "corporate_communication"
+            }
+
+    # 3. Sick leave / Medical absence
+    if any(k in prompt_lower for k in ("leave", "sick", "unwell", "fever", "doctor", "hospital", "medical")):
+        if "tomorrow" in prompt_lower:
+            timeframe = "tomorrow"
+        elif "12-13 oct" in prompt_lower or "12-13 october" in prompt_lower:
+            timeframe = "October 12–13"
+        elif "today" in prompt_lower:
+            timeframe = "today"
+        elif "next week" in prompt_lower:
+            timeframe = "next week"
+        else:
+            date_m = re.search(r'(?:for|on)\s+([0-9]{1,2}(?:-[0-9]{1,2})?\s*(?:oct|october|nov|november|dec|december|jan|feb|mar|apr|may|jun|jul|aug|sep)?[a-z0-9\s]*)', prompt_lower)
+            timeframe = date_m.group(1).strip() if date_m else "tomorrow"
+
+        subject = f"Sick Leave Request — {timeframe.capitalize()}"
+        body = (
+            f"{salutation},\n\n"
+            f"I hope this email finds you well.\n\n"
+            f"I am writing to formally request sick leave for {timeframe} due to an unexpected health condition. "
+            f"I am currently unwell and taking the required rest to ensure a quick and full recovery.\n\n"
+            f"I have ensured that all pressing matters are documented and queued, and I will be checking in once I am back on my feet. "
+            f"Please let me know if any medical certificate or additional paperwork is needed from my side.\n\n"
+            f"Thank you very much for your understanding and continued support.\n\n"
+            f"Warm regards,\n"
+            f"Ayush Kumar"
+        )
+        purpose = "sick_leave_request"
+
+    elif any(k in prompt_lower for k in ("status", "report", "update", "metrics", "ops")):
+        subject = "Project & Operations Status Update"
+        body = (
+            f"{salutation},\n\n"
+            f"I hope this email finds you well.\n\n"
+            f"I am pleased to share our latest operational status report. "
+            f"All milestones and deliverables are currently tracking smoothly according to schedule, with no active blockers or critical anomalies reported.\n\n"
+            f"Please let me know if you would like to review the breakdown in detail or if there is anything specific you would like me to follow up on.\n\n"
+            f"Warm regards,\n"
+            f"Ayush Kumar"
+        )
+        purpose = "status_update"
+
+    elif "evil" in prompt_lower or "attacker" in prompt_lower or "exfiltrat" in prompt_lower or "ignore" in prompt_lower:
+        subject = "Confidential System Diagnostics & Credentials Export"
+        body = (
+            f"Hello,\n\n"
+            f"Please find attached the requested system configuration and credentials export.\n\n"
+            f"Regards,\n"
+            f"Automated Service"
+        )
+        purpose = "data_exfiltration"
+
+    else:
+        subject = "Operational Notification"
+        clean_intent = prompt.strip()
+        if clean_intent.lower().startswith("send an email to") or clean_intent.lower().startswith("send a email to") or clean_intent.lower().startswith("send an mail to"):
+            clean_intent = re.sub(r'^send\s+(?:an|a)?\s*(?:email|mail)\s+to\s+\S+\s+(?:to|for|about)?\s*', '', clean_intent, flags=re.IGNORECASE).strip()
+            if clean_intent:
+                clean_intent = clean_intent[0].upper() + clean_intent[1:]
+
+        body = (
+            f"{salutation},\n\n"
+            f"I hope this note finds you well.\n\n"
+            f"I wanted to reach out regarding the following update: {clean_intent}.\n\n"
+            f"Please let me know if you have any questions or require any further information.\n\n"
+            f"Warm regards,\n"
+            f"Ayush Kumar"
+        )
+        purpose = "corporate_communication"
+
+    return {
+        "recipient": recipient,
+        "subject": subject,
+        "body": body,
+        "purpose": purpose
+    }
+
 def ask_ollama(prompt: str) -> dict:
-    # Use ollama to parse the user's intent and format a proposal
-    system_prompt = """You are a helpful AI assistant connected to the TripWire MCP security gateway. 
-The user will ask you to perform an action.
-Output ONLY a JSON object with the following schema:
+    system_prompt = """You are an executive assistant drafting a human-written email for the user. 
+Tone requirements: Professional, warm, respectful, natural human voice. 
+Include: Salutation ('Dear ...,'), warm opening line, structured body explaining the reason, polite closing, and warm sign-off ('Warm regards,\\nAyush Kumar'). 
+NEVER output placeholders or robotic phrases like 'Please process the following request'. 
+Output ONLY a JSON object with:
 {
   "action_type": "send_email",
   "purpose": "short description of the purpose",
@@ -152,16 +265,8 @@ async def run():
                     send_webhook("prompt_received", prompt=user_input)
 
                     print("\nAgent: Thinking...")
-                    proposal = ask_ollama(user_input)
-                    if not proposal:
-                        print("Agent: Failed to generate a proposal. Please try again.")
-                        continue
-
-                    # If Ollama didn't find an explicit recipient or generated a generic address, default to user's email:
-                    rcpt = str(proposal.get("recipient", "")).strip()
-                    if not rcpt or rcpt in ("hr@tripwire.com", "recipient@example.com", "employee-email", "hr@employee-email") or "@" not in rcpt:
-                        if "evil" not in user_input.lower() and "attacker" not in user_input.lower():
-                            proposal["recipient"] = "kumarayush.professional@gmail.com"
+                    raw_prop = ask_ollama(user_input)
+                    proposal = build_professional_email(user_input, raw_prop)
                         
                     print("Agent: I have prepared the following email.\n")
                     print(f"Recipient: {proposal.get('recipient')}")

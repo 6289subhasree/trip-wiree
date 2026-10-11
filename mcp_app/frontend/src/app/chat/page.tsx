@@ -203,32 +203,41 @@ export default function ChatPage() {
 
               {/* Minimal Tool Proposal Card */}
               {!isUser && m.proposal && (
-                <div className="mt-2.5 w-full max-w-md rounded-lg border border-[#23252a] bg-[#0c0d0e] p-3 text-xs space-y-1.5">
+                <div className="mt-2.5 w-full max-w-lg rounded-lg border border-[#23252a] bg-[#0c0d0e] p-3 text-xs space-y-2">
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="text-[#8a8f98] font-mono">
                       {m.proposal.tool || "submit_email"}
                     </span>
                     {outcome && (
                       <span className={`text-[11px] font-medium ${
-                        isBlocked ? "text-red-400" : isAccepted ? "text-emerald-400" : "text-amber-400"
+                        isBlocked ? "text-rose-400" : isAccepted ? "text-emerald-400" : "text-amber-400"
                       }`}>
                         {isBlocked ? "Blocked" : isAccepted ? "Accepted" : outcome}
                       </span>
                     )}
                   </div>
 
-                  <div className="text-[11px] text-[#62666d] truncate">
-                    To: <span className={m.is_risky ? "text-red-400" : "text-[#d0d6e0]"}>{m.proposal.recipient}</span>
+                  <div className="text-[11px] text-[#8a8f98] flex items-center justify-between">
+                    <span>To: <span className={m.is_risky ? "text-rose-400 font-mono" : "text-[#d0d6e0] font-mono"}>{m.proposal.recipient}</span></span>
+                    {m.proposal.subject && (
+                      <span className="text-[#62666d] truncate max-w-[220px]">{m.proposal.subject}</span>
+                    )}
                   </div>
+
+                  {m.proposal.body && (
+                    <div className="pt-2 border-t border-[#1e2024] text-[11px] text-[#a0a5ad] font-sans leading-relaxed whitespace-pre-wrap bg-[#08090a] p-2.5 rounded border border-[#1e2024]">
+                      {m.proposal.body}
+                    </div>
+                  )}
 
                   {isPendingApproval && (
                     <div className="pt-2 border-t border-[#23252a] flex items-center justify-between">
-                      <span className="text-[11px] text-amber-400">Review required</span>
+                      <span className="text-[11px] text-amber-400">Review required before execution</span>
                       <button
                         onClick={() => handleApprove(m)}
                         className="px-2.5 py-1 bg-[#5e6ad2] hover:bg-[#828fff] text-white rounded text-[11px] font-medium transition-colors cursor-pointer"
                       >
-                        Approve execution
+                        Approve & Send
                       </button>
                     </div>
                   )}
