@@ -158,19 +158,20 @@ export default function VantageCLI() {
             $ npx vantage-agent@latest
           </div>
 
-          {/* ASCII Banner in Vibrant Pink */}
-          <div className="pt-1 pb-2">
-            <pre className="text-[#ff70a6] font-bold text-[10px] sm:text-[13px] leading-[1.15] tracking-tighter drop-shadow-[0_0_12px_rgba(255,112,166,0.4)] overflow-x-auto select-none">
-{` __     ___    _   _ _____  _    ____ _____ 
- \\ \\   / / \\  | \\ | |_   _|/ \\  / ___| ____|
-  \\ \\ / / _ \\ |  \\| | | | / _ \\| |  _|  _|  
-   \\ V / ___ \\| |\\  | | |/ ___ \\ |_| | |___ 
-    \\_/_/   \\_\\_| \\_| |_/_/   \\_\\____|_____|`}
+          {/* 3D Block Banner (Styled directly from inspiration AG-UI) */}
+          <div className="pt-2 pb-3 border-l-4 border-[#7928ca] pl-4 my-2">
+            <pre className="text-[#ff70a6] font-bold text-[9px] sm:text-[13px] leading-[1.15] drop-shadow-[0_0_18px_rgba(255,112,166,0.65)] overflow-x-auto select-none font-mono tracking-tighter">
+{`██╗   ██╗ █████╗ ███╗   ██╗████████╗ █████╗  ██████╗ ███████╗
+██║   ██║██╔══██╗████╗  ██║╚══██╔══╝██╔══██╗██╔════╝ ██╔════╝
+██║   ██║███████║██╔██╗ ██║   ██║   ███████║██║  ███╗█████╗  
+╚██╗ ██╔╝██╔══██║██║╚██╗██║   ██║   ██╔══██║██║   ██║██╔══╝  
+ ╚████╔╝ ██║  ██║██║ ╚████║   ██║   ██║  ██║╚██████╔╝███████╗
+  ╚═══╝  ╚═╝  ╚═╝╚═╝  ╚═══╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚══════╝`}
             </pre>
-            <div className="text-[#ff70a6] font-semibold text-xs tracking-wider mt-2">
-              Agent User Interactivity & Containment Protocol
+            <div className="text-[#e2e8f0] font-mono text-xs sm:text-sm tracking-wide mt-3">
+              Agent User Interactivity &amp; Containment Protocol
             </div>
-            <div className="text-[#8a8f98] text-[11px] mt-1">
+            <div className="text-[#8a8f98] text-[11px] mt-1 font-mono">
               ~ Let&apos;s get started with Vantage interactive security agent ~
             </div>
           </div>
