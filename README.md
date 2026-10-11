@@ -209,3 +209,5 @@ docs/               DEMO.md, DECK_NOTES.md, adr/, reference/ (PRD and deck), scr
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow.
+
+Team HellCode project submission.
