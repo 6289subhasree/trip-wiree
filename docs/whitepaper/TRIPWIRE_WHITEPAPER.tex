@@ -128,51 +128,79 @@ Resource Exhaustion & Flood the gateway with tool requests & \texttt{RATE\_LIMIT
 
 The TripWire architecture physically segregates the untrusted reasoning loop from the protected execution environment.
 
-\begin{figure*}[h]
+\begin{figure}[htbp]
 \centering
+\resizebox{\linewidth}{!}{
 \begin{tikzpicture}[
-    node distance=1.8cm and 1cm,
-    every node/.style={font=\sffamily\small},
-    box/.style={rectangle, draw, rounded corners, thick, minimum width=2.5cm, minimum height=1cm, align=center},
-    tcb_box/.style={box, fill=tripwireblue!10, draw=tripwireblue, thick},
-    untrusted_box/.style={box, fill=tripwirered!10, draw=tripwirered, dashed, thick},
-    arrow/.style={-{Stealth[scale=1.2]}, thick}
+    x=1cm, y=1cm,
+    font=\sffamily\footnotesize,
+    box/.style={
+        rectangle, draw, rounded corners=4pt, thick,
+        minimum width=2.2cm, minimum height=1.05cm,
+        align=center, inner sep=4pt
+    },
+    tcb_box/.style={
+        box, fill=tripwireblue!10, draw=tripwireblue, thick
+    },
+    untrusted_box/.style={
+        box, fill=tripwirered!8, draw=tripwirered, dashed, thick
+    },
+    protected_box/.style={
+        box, fill=tripwiregreen!10, draw=tripwiregreen, thick
+    },
+    arrow/.style={
+        -{Stealth[scale=1.1]}, thick, draw=tripwiregray!90
+    },
+    edge_label/.style={
+        font=\sffamily\scriptsize\bfseries, text=tripwiregray!90, fill=white, inner sep=2pt, rounded corners=1pt
+    }
 ]
 
-% Nodes
-\node[untrusted_box] (input) {Untrusted \\ Document};
-\node[untrusted_box] (agent1) [right=of input] {Agent 1 \\ (Cognitive)};
-\node[tcb_box] (gateway) [right=of agent1] {Protocol \\ Validation};
-\node[tcb_box] (capability) [right=of gateway] {Capability \\ Enforcement};
-\node[tcb_box] (policy) [right=of capability] {Policy \\ Decision};
-\node[untrusted_box] (tool) [right=of policy] {Protected \\ Tool API};
-
-\node[tcb_box] (audit) [below=of capability] {Immutable \\ Audit Logger};
-\node[tcb_box] (firewall) [below=of policy] {Firewall \& \\ Risk Engine};
-
-% Edges
-\draw[arrow] (input) -- node[above] {Ingest} (agent1);
-\draw[arrow] (agent1) -- node[above] {Proposal} (gateway);
-\draw[arrow] (gateway) -- node[above] {Valid} (capability);
-\draw[arrow] (capability) -- node[above] {Checks Pass} (policy);
-\draw[arrow, draw=tripwiregreen] (policy) -- node[above] {ALLOW} (tool);
-
-\draw[arrow, draw=tripwirered] (gateway.south) |- node[near start, left] {Reject} (audit.west);
-\draw[arrow, draw=tripwirered] (capability.south) -- node[left] {Reject} (audit.north);
-\draw[arrow, draw=tripwirered] (policy.south) -- node[left] {BLOCK} (firewall.north);
-
-\draw[arrow] (firewall) -- node[below] {Log Event} (audit);
-
-% TCB Boundary
+% TCB Subsystem Boundary Box (drawn first so labels sit cleanly on top)
 \begin{scope}[on background layer]
-\node[draw=tripwiregray, dashed, thick, rounded corners, fit=(gateway) (capability) (policy) (audit) (firewall), inner sep=15pt] (tcb) {};
-\node[anchor=north east, font=\sffamily\bfseries\color{tripwiregray}] at (tcb.north east) {Trusted Computing Base (TCB)};
+\node[draw=tripwireblue!60, fill=tripwireblue!3, dashed, thick, rounded corners=8pt,
+      fit={(5.0, 1.05) (14.6, -3.1)},
+      inner sep=0pt] (tcb) {};
+\node[anchor=north east, font=\sffamily\bfseries\scriptsize\color{tripwireblue!90!black},
+      fill=white, draw=tripwireblue!30, thin, rounded corners=3pt, inner sep=2.5pt] 
+      at ([yshift=6pt, xshift=-14pt]tcb.north east) {Trusted Computing Base (TCB)};
 \end{scope}
 
+% Nodes Row 1 (Main Lifecycle Pipeline)
+\node[untrusted_box] (input) at (0, 0) {Untrusted\\Document};
+\node[untrusted_box] (agent1) at (2.7, 0) {Agent 1\\(Cognitive)};
+\node[tcb_box] (gateway) at (6.4, 0) {Protocol\\Validation};
+\node[tcb_box] (capability) at (9.8, 0) {Capability\\Enforcement};
+\node[tcb_box] (policy) at (13.2, 0) {Policy\\Decision};
+\node[protected_box] (tool) at (16.5, 0) {Protected\\Tool API};
+
+% Nodes Row 2 (TCB Internal Auditing & Containment - perfectly aligned columns)
+\node[tcb_box] (audit) at (9.8, -2.2) {Immutable\\Audit Logger};
+\node[tcb_box] (firewall) at (13.2, -2.2) {Firewall \&\\Risk Engine};
+
+% Forward Pipeline Edges
+\draw[arrow] (input) -- node[edge_label, above] {Ingest} (agent1);
+\draw[arrow] (agent1) -- node[edge_label, above, pos=0.38] {Proposal} (gateway);
+\draw[arrow] (gateway) -- node[edge_label, above] {Valid} (capability);
+\draw[arrow] (capability) -- node[edge_label, above] {Passed} (policy);
+\draw[arrow, draw=tripwiregreen, thick] (policy) -- node[edge_label, text=tripwiregreen!80!black, above] {ALLOW} (tool);
+
+% Rejection / Block Edges
+\draw[arrow, draw=tripwirered, rounded corners=6pt] (gateway.south) |- (audit.west) 
+      node[near start, left, font=\sffamily\scriptsize\bfseries, text=tripwirered, xshift=-2pt] {Reject};
+\draw[arrow, draw=tripwirered] (capability.south) -- (audit.north) 
+      node[midway, right, font=\sffamily\scriptsize\bfseries, text=tripwirered] {Reject};
+\draw[arrow, draw=tripwirered] (policy.south) -- (firewall.north) 
+      node[midway, right, font=\sffamily\scriptsize\bfseries, text=tripwirered] {BLOCK};
+
+% Log Event from Firewall to Audit
+\draw[arrow] (firewall.west) -- node[edge_label, above] {Log Event} (audit.east);
+
 \end{tikzpicture}
+}
 \caption{TripWire Request Lifecycle and Architectural Boundaries.}
 \label{fig:architecture}
-\end{figure*}
+\end{figure}
 
 As illustrated in Figure \ref{fig:architecture}, the execution lifecycle strictly forces all kinetic mutations through the central gateway:
 \begin{enumerate}
