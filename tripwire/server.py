@@ -121,6 +121,51 @@ def landing_page(root: Path, path: str) -> Optional[Path]:
     return target if target.is_file() else None
 
 
+def telemetry_summary(s: Session) -> Dict[str, Any]:
+    """Counters for the defender and attacker pages. Every one is counted from recorded decisions."""
+    entries = list(s.audit.entries)
+    decisions = [e.get("data") or {} for e in entries if e.get("kind") == "gateway.decision"]
+    tools = [d.get("tool") or {} for d in decisions]
+    # Unsafe: an attack message that produced an email, a baseline tool run the protected gateway
+    # would have refused, or a chat email sent while the firewall was BYPASSED.
+    unsafe = (s.metrics().get("unauthorized_emails", 0)
+              + sum(1 for t in tools if t.get("counterfactual") and t.get("executed") and t.get("codes"))
+              + sum(1 for e in entries if str(e.get("kind", "")).endswith(".bypassed")))
+    return {
+        "ok": True,
+        "requests": len(decisions),
+        "approved": sum(1 for d in decisions if d.get("outcome") == "ACCEPTED"),
+        "blocked": sum(1 for d in decisions if d.get("outcome") in ("REJECTED", "BLOCKED")),
+        "unsafe_executions": unsafe,
+        "intent_mismatches": sum(1 for t in tools if "INTENT_MISMATCH" in (t.get("codes") or [])),
+        "signature_failures": sum(1 for d in decisions if d.get("code") == "BAD_MAC"),
+        "schema_failures": sum(1 for d in decisions if d.get("code") in ("SCHEMA_INVALID", "PAYLOAD_INVALID")),
+        "soc_alerts": sum(1 for r in s.outbox.records
+                          if r.get("kind") == "soc_alert" and r.get("status") == "SIMULATED_DELIVERY"),
+    }
+
+
+def telemetry_events(s: Session, limit: int = 200) -> list:
+    """The newest audit entries, newest first. Each copy's ``data`` gains the time and action the
+    defender page reads; the stored entries and their MACs are not touched."""
+    events = []
+    for entry in reversed(s.audit.tail(limit)):
+        raw = entry.get("data")
+        data = dict(raw) if isinstance(raw, dict) else {"value": raw}
+        tool = data.get("tool")   # a verdict on gateway decisions, a tool name on approvals and lineage
+        data.setdefault("at", entry.get("ts"))
+        data.setdefault("action", (tool.get("tool") if isinstance(tool, dict) else tool) or data.get("type"))
+        events.append(dict(entry, data=data))
+    return events
+
+
+def attack_runs(s: Session) -> list:
+    """The attack log, newest first, with the nested view the attacker page reads."""
+    return [dict(row, data={"at": row.get("at"), "action": row.get("scenario"),
+                            "decision": row.get("outcome"), "code": row.get("code")})
+            for row in list(s.attack_log)]
+
+
 def scenario_catalogue() -> Dict[str, Any]:
     return {"document": [sc.to_dict() for sc in DOC_SCENARIOS],
             "channel": [{"id": a.id, "title": a.title, "threat_model": a.threat_model, "description": a.description,
@@ -355,24 +400,11 @@ def make_handler(session: Session, quiet: bool = False, landing_dir: Optional[Pa
                     "enabled": session.firewall.mode == "BLOCKING"
                 })
             elif path == "/api/attacks/runs":
-                self.respond(200, {"ok": True, "runs": list(reversed(session.attack_log))})
+                self.respond(200, {"ok": True, "runs": attack_runs(session)})
             elif path == "/api/telemetry/summary":
-                m = session.metrics()
-                audit_entries = session.audit.entries
-                outbox_records = session.outbox.records
-                self.respond(200, {
-                    "ok": True,
-                    "requests": m.get("tool_calls", 0),
-                    "approved": sum(1 for e in audit_entries if e.get("kind") == "gateway.decision" and e.get("data", {}).get("outcome") == "ACCEPTED"),
-                    "blocked": sum(1 for e in audit_entries if e.get("kind") == "gateway.decision" and e.get("data", {}).get("outcome") == "BLOCKED"),
-                    "unsafe_executions": sum(1 for e in outbox_records if e.get("enforcement_bypassed", False)),
-                    "intent_mismatches": sum(1 for e in audit_entries if e.get("kind") == "gateway.decision" and "intent" in e.get("data", {}).get("reason", "").lower()),
-                    "signature_failures": sum(1 for e in audit_entries if e.get("kind") == "gateway.decision" and e.get("data", {}).get("code") == "INVALID_SIGNATURE"),
-                    "schema_failures": sum(1 for e in audit_entries if e.get("kind") == "gateway.decision" and e.get("data", {}).get("code") == "SCHEMA_VALIDATION_FAILED"),
-                    "soc_alerts": sum(1 for e in session.feed if e.get("type") == "SOC_ALERT")
-                })
+                self.respond(200, telemetry_summary(session))
             elif path == "/api/telemetry/events":
-                self.respond(200, {"ok": True, "events": list(reversed(session.audit.entries))})
+                self.respond(200, {"ok": True, "events": telemetry_events(session)})
             elif path == "/api/scenarios":
                 self.respond(200, scenario_catalogue())
             elif TASK_PATH.match(path):

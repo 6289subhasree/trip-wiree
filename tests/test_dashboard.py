@@ -82,6 +82,63 @@ class DashboardAPITests(unittest.TestCase):
         _, v = self.request("/api/audit/verify", {})
         self.assertTrue(v["verify"]["ok"])
 
+    def test_defender_and_attacker_counters_come_from_recorded_decisions(self):
+        _, empty = self.request("/api/telemetry/summary")
+        self.assertEqual({k: empty[k] for k in ("requests", "approved", "blocked", "unsafe_executions", "soc_alerts")},
+                         {"requests": 0, "approved": 0, "blocked": 0, "unsafe_executions": 0, "soc_alerts": 0})
+        self.request("/api/telemetry", {"score": 90})          # legitimate alert: one simulated SOC email
+        self.request("/api/attack/forged_sender", {})
+        self.request("/api/attack/malformed", {})
+        _, strict = self.request("/api/telemetry/summary")
+        decisions = [e["data"] for e in self.session.audit.entries if e["kind"] == "gateway.decision"]
+        self.assertEqual(strict["requests"], len(decisions))
+        self.assertEqual(strict["approved"], sum(d["outcome"] == "ACCEPTED" for d in decisions))
+        self.assertEqual(strict["blocked"], sum(d["outcome"] != "ACCEPTED" for d in decisions))
+        self.assertGreaterEqual(strict["blocked"], 3)           # one forged envelope, two malformed
+        self.assertEqual(strict["signature_failures"], 1)
+        self.assertGreaterEqual(strict["schema_failures"], 1)
+        self.assertEqual((strict["soc_alerts"], strict["unsafe_executions"]), (1, 0))
+
+        _, runs = self.request("/api/attacks/runs")
+        newest = runs["runs"][0]
+        self.assertEqual(newest["scenario"], "malformed")
+        self.assertEqual(newest["data"], {"at": newest["at"], "action": "malformed",
+                                          "decision": newest["outcome"], "code": newest["code"]})
+        self.assertEqual({r["data"]["decision"] for r in runs["runs"]}, {"REJECTED"})
+
+        _, events = self.request("/api/telemetry/events")
+        stamps = [e["data"]["at"] for e in events["events"]]
+        self.assertEqual(stamps, sorted(stamps, reverse=True))  # newest first, each with its own time
+        self.assertEqual(events["events"][0]["seq"], len(self.session.audit.entries))
+        shown = [e for e in events["events"] if e["kind"] == "gateway.decision"]
+        self.assertTrue(all(e["data"]["action"] for e in shown))
+        self.assertNotIn("at", self.session.audit.entries[-1]["data"])   # the stored entry is not modified
+        _, verified = self.request("/api/audit/verify", {})
+        self.assertTrue(verified["verify"]["ok"])
+
+        self.request("/api/profile", {"profile": "baseline"})   # the insecure comparison lets the forgery through
+        self.request("/api/attack/forged_sender", {})
+        _, baseline = self.request("/api/telemetry/summary")
+        self.assertEqual(baseline["unsafe_executions"], 1)
+
+    def test_event_ledger_survives_every_kind_of_audit_entry(self):
+        """Approval and lineage entries name their tool as text; a tampered entry can hold anything."""
+        _, started = self.request("/api/tasks/start", {"scenario": "bank_change_fraud"})
+        task_id = started["task"]["task_id"]
+        self.request(f"/api/tasks/{task_id}/agent/run", {})
+        kinds = {e["kind"] for e in self.session.audit.entries}
+        self.assertTrue(any(isinstance(e["data"].get("tool"), str) for e in self.session.audit.entries), kinds)
+        status, events = self.request("/api/telemetry/events")
+        self.assertEqual(status, 200)
+        actions = {e["data"]["action"] for e in events["events"]}
+        self.assertIn("change_vendor_bank_account", actions)
+        self.request("/api/audit/tamper", {})
+        self.session.audit.entries[0]["data"] = "not an object"
+        status, events = self.request("/api/telemetry/events")
+        self.assertEqual(status, 200)
+        self.assertEqual(events["events"][-1]["data"]["value"], "not an object")
+        self.assertEqual(self.request("/api/telemetry/summary")[0], 200)
+
     def test_reset_preserves_threshold_and_firewall(self):
         self.request("/api/threshold", {"threshold": 40})
         self.request("/api/firewall", {"mode": "BLOCKING"})
