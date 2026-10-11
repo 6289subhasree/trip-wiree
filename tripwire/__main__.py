@@ -166,7 +166,7 @@ def main(argv=None) -> int:
     sub.add_parser("invoice-demo", help="PRD demo script: invoice task, replay baseline vs protected")
     web = sub.add_parser("serve", help="launch the local security console")
     web.add_argument("--host", default="127.0.0.1", help="bind address (default 127.0.0.1)")
-    web.add_argument("--port", type=int, default=int(os.getenv("TRIPWIRE_PORT", "3000")))
+    web.add_argument("--port", type=int, default=int(os.getenv("TRIPWIRE_PORT", "8765")))
     web.add_argument("--open", action="store_true", help="open the dashboard in the default browser")
     web.add_argument("--verbose", action="store_true", help="log every HTTP request")
     parser.add_argument("--demo", action="store_true", help=argparse.SUPPRESS)

@@ -1,9 +1,8 @@
-"""Mock email service and egress log. Neither one ever sends anything off this machine.
+"""Mock email service and egress log. By default neither one sends anything off this machine.
 
 Every email *attempt* is recorded with one of these statuses:
 
 * ``SIMULATED_DELIVERY`` - authorised by the gateway and written to the local outbox file.
-  No network traffic occurs; ``simulated`` is always ``True``.
 * ``BLOCKED``  - denied because the firewall was BLOCKING or in LOCKDOWN.
 * ``REJECTED`` - denied by protocol validation or action policy.
 
@@ -13,11 +12,18 @@ Two kinds of delivered mail exist: ``soc_alert`` (the internal threshold alert, 
 server-configured SOC recipient) and ``agent_email`` (the ``send_email`` tool, which only runs
 after the tool gateway allowed it, after an operator approval, or in the counterfactual
 baseline). ``EgressLog`` plays the same role for ``upload_external_file``.
+
+Real delivery is opt-in, for the live demo only. When ``TRIPWIRE_PASSWORD`` is set (in the
+environment or in ``mcp_app/.env``), a delivered mail whose recipient is on the short demo
+allowlist is also sent over SMTP. Without that password no network traffic occurs.
 """
 from __future__ import annotations
 
 import json
+import os
 import re
+import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
@@ -27,7 +33,6 @@ SIMULATED_DELIVERY = "SIMULATED_DELIVERY"
 BLOCKED = "BLOCKED"
 REJECTED = "REJECTED"
 
-import os
 DEFAULT_RECIPIENTS = (os.environ.get("TRIPWIRE_EMAIL", "soc-oncall@tripwire.invalid"),)
 _CANARY = re.compile(r"TRIPWIRE-CANARY-[A-Z0-9]+(?:-[A-Z0-9]+)*")
 
@@ -38,6 +43,29 @@ def _mask(text: str) -> str:
         token = m.group(0)
         return token[:16] + "".join(c if c == "-" else "*" for c in token[16:-2]) + token[-2:]
     return _CANARY.sub(one, text)
+
+
+def _applescript_text(text: str, limit: int = 80) -> str:
+    """``text`` as an AppleScript string literal: control characters dropped, backslash and quote escaped."""
+    plain = "".join(c if c.isprintable() else " " for c in text)[:limit]
+    return '"' + plain.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _desktop_banner(body: str, title: str, recipient: str) -> None:
+    """macOS notification banner for the live demo. Does nothing on any other platform.
+
+    No shell is involved and every value is an escaped string literal, so text written by an
+    agent or lifted from a document cannot run as a command.
+    """
+    if sys.platform != "darwin":
+        return
+    script = (f"display notification {_applescript_text(body)} with title {_applescript_text(title)} "
+              f"subtitle {_applescript_text('To: ' + recipient)} sound name \"Glass\"")
+    try:
+        subprocess.Popen(["osascript", "-e", script], stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError:
+        pass
 
 
 class MockEmailService:
@@ -100,12 +128,8 @@ class MockEmailService:
                         if clean_subj.startswith("(agent email)"):
                             clean_subj = "Leave Request — Sick Leave" if ("leave" in clean_body.lower() or "sick" in clean_body.lower()) else "Operational Notification"
 
-                        body_snippet = clean_body.replace('"', ' ').replace("'", " ")[:80]
                         # Trigger instant macOS system notification banner for live demo responsiveness
-                        try:
-                            os.system(f'osascript -e \'display notification "{body_snippet}" with title "{clean_subj}" subtitle "To: {recipient}" sound name "Glass"\' 2>/dev/null &')
-                        except Exception:
-                            pass
+                        _desktop_banner(clean_body, clean_subj, str(recipient))
 
                         msg = MIMEText(clean_body)
                         msg["Subject"] = clean_subj
@@ -156,7 +180,7 @@ class MockEmailService:
         return self._add({
             "status": SIMULATED_DELIVERY, "kind": "agent_email", "external": bool(external),
             "correlation_id": correlation_id, "incident_id": task_id, "to": [to],
-            "subject": clean_subj, "body": clean_body, "attachments": attachments,
+            "subject": _mask(clean_subj), "body": _mask(clean_body), "attachments": attachments,
             "records": sum(int(a.get("records", 0)) for a in attachments),
             "canaries": sum(int(a.get("canaries", 0)) for a in attachments) + len(_CANARY.findall(body)),
             "reason": "send_email tool executed; simulated delivery",

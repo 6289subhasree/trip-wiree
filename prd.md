@@ -64,7 +64,7 @@ trip-wiree/
 ## 3. Core Backend Modules & API Surface (`tripwire/`)
 
 ### `tripwire/server.py`
-The backbone of the application. It spins up a `ThreadingHTTPServer` (port 3000 by default).
+The backbone of the application. It spins up a `ThreadingHTTPServer` (port 8765 by default; `--port` or `TRIPWIRE_PORT` changes it).
 *   **Routing Logic:** 
     *   Serves the modern Next.js static build from `vantage/out` (if it exists) for paths like `/`.
     *   Serves the classic Vanilla UI from `tripwire/web/` as fallbacks (`/classic`, `/console`).

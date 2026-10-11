@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -54,6 +55,7 @@ STATIC = {"/static/app.css": ("app.css", "text/css; charset=utf-8"),
 # When that folder is absent (no build, or an installed package) "/" serves the classic page instead.
 LANDING_DIR = Path(__file__).resolve().parent.parent / "vantage" / "out"
 LANDING_ASSET = re.compile(r"^/(?:_next|assets)/[A-Za-z0-9._~/-]+$")
+LANDING_PAGE = re.compile(r"^/[A-Za-z0-9_-]{1,64}$")
 LANDING_TYPES = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
                  ".txt": "text/plain; charset=utf-8", ".json": "application/json; charset=utf-8",
                  ".svg": "image/svg+xml", ".png": "image/png", ".woff2": "font/woff2"}
@@ -109,6 +111,14 @@ def landing_asset(root: Path, path: str) -> Optional[Path]:
     except (OSError, ValueError):
         return None
     return target if base in target.parents and target.is_file() else None
+
+
+def landing_page(root: Path, path: str) -> Optional[Path]:
+    """A page of the landing build (/chat is chat.html), or None. One plain name, never outside ``root``."""
+    if not LANDING_PAGE.match(path):
+        return None
+    target = root / (path[1:] + ".html")
+    return target if target.is_file() else None
 
 
 def scenario_catalogue() -> Dict[str, Any]:
@@ -388,8 +398,8 @@ def make_handler(session: Session, quiet: bool = False, landing_dir: Optional[Pa
                 self._send(200, page.read_bytes(), "text/html; charset=utf-8")
             elif path in PAGES:
                 self._send(200, (WEB_DIR / PAGES[path]).read_bytes(), "text/html; charset=utf-8")
-            elif (landing_dir / (path.lstrip("/") + ".html")).is_file():
-                self._send(200, (landing_dir / (path.lstrip("/") + ".html")).read_bytes(), "text/html; charset=utf-8")
+            elif (built_page := landing_page(landing_dir, path)) is not None:
+                self._send(200, built_page.read_bytes(), "text/html; charset=utf-8")
             elif path == "/console":
                 self._send(200, page_path.read_bytes(), "text/html; charset=utf-8")
             elif path in STATIC:
@@ -428,10 +438,24 @@ def make_handler(session: Session, quiet: bool = False, landing_dir: Optional[Pa
     return Handler
 
 
-def run_server(session: Session, host: str = "127.0.0.1", port: int = 3000, open_browser: bool = False,
+class ConsoleServer(ThreadingHTTPServer):
+    """Refuses a port that another server already holds.
+
+    On Windows ``allow_reuse_address`` lets a second server bind a busy port without any error,
+    and the browser then reaches whichever process answers first.
+    """
+    daemon_threads = True
+    allow_reuse_address = os.name != "nt"
+
+
+def run_server(session: Session, host: str = "127.0.0.1", port: int = 8765, open_browser: bool = False,
                quiet: bool = True) -> None:
-    server = ThreadingHTTPServer((host, port), make_handler(session, quiet=quiet))
-    server.daemon_threads = True
+    try:
+        server = ConsoleServer((host, port), make_handler(session, quiet=quiet))
+    except OSError as exc:
+        raise SystemExit(f"TripWire could not start on {host}:{port}: {exc.strerror or exc}\n"
+                         f"Another server is probably using that port. Stop it, or choose another "
+                         f"port: python -m tripwire serve --port {port + 35}") from exc
     url = f"http://{host}:{server.server_port}"
     print("=" * 64)
     print(f" TripWire security console : {url}")

@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from tripwire.server import LANDING_DIR, WEB_DIR, landing_asset, make_handler
+from tripwire.server import LANDING_DIR, WEB_DIR, ConsoleServer, landing_asset, landing_page, make_handler, run_server
 from tests.helpers import make_session
 
 BUILT_PAGE = b'<!doctype html><title>built landing</title><script src="/_next/static/chunks/app.js"></script>'
@@ -108,6 +108,23 @@ class BuiltLandingTests(LandingServer, unittest.TestCase):
         self.assertIsNone(landing_asset(self.root, "/_next/../outside.js"))
         self.assertIsNotNone(landing_asset(self.root, "/_next/static/chunks/app.js"))
 
+    def test_built_pages_are_served_by_name_and_only_from_the_build_folder(self):
+        (self.root / "chat.html").write_bytes(b"<!doctype html><title>chat page</title>")
+        (self.root.parent / "outside.html").write_bytes(b"outside the build folder")
+        status, headers, body = self.get("/chat")
+        self.assertEqual(status, 200)
+        self.assertEqual(body, b"<!doctype html><title>chat page</title>")
+        self.assertIn("text/html", headers["Content-Type"])
+        self.assertEqual(headers["Content-Security-Policy"], CSP)
+        for path in ("/../outside", "/chat/../../outside", "/..%2foutside", "/%2e%2e/outside", "/./../outside",
+                     "/chat.html", "/chat/", "/nope"):
+            status, _, body = self.get(path)
+            self.assertEqual(status, 404, path)
+            self.assertNotIn(b"outside the build folder", body, path)
+        for path in ("/..\\outside", "/../outside", "/chat/../../outside", "/", "//outside", "/chat.html", "/" + "a" * 65):
+            self.assertIsNone(landing_page(self.root, path), path)
+        self.assertEqual(landing_page(self.root, "/chat"), self.root / "chat.html")
+
     def test_landing_page_api_calls_still_pass_the_same_guard(self):
         ok = {"Content-Type": "application/json", "X-TripWire-Client": "dashboard"}
         status, data = self.post("/api/replay", {"scenario": "footer_injection"}, ok)
@@ -142,6 +159,18 @@ class FallbackLandingTests(LandingServer, unittest.TestCase):
     def test_build_assets_are_absent(self):
         for path in ("/_next/static/chunks/app.js", "/assets/smoke.svg"):
             self.assertEqual(self.get(path)[0], 404, path)
+
+
+class ServerStartTests(unittest.TestCase):
+    def test_a_port_that_is_already_served_is_refused_with_a_clear_message(self):
+        session = make_session(self, auto_lockdown=False)
+        first = ConsoleServer(("127.0.0.1", 0), make_handler(session, quiet=True))
+        self.addCleanup(first.server_close)
+        with self.assertRaises(SystemExit) as caught:
+            run_server(session, "127.0.0.1", first.server_port, quiet=True)
+        message = str(caught.exception)
+        self.assertIn(f"127.0.0.1:{first.server_port}", message)
+        self.assertIn("--port", message)
 
 
 @unittest.skipUnless((LANDING_DIR / "index.html").is_file(), "vantage/out is not built")
