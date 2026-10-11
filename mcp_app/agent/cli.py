@@ -44,6 +44,10 @@ def build_professional_email(prompt: str, raw_proposal: dict = None) -> dict:
     salutation = "Dear Team"
     if "kumarayush" in recipient.lower() or "ayush" in recipient.lower():
         salutation = "Dear Ayush"
+    elif "subhasree" in recipient.lower():
+        salutation = "Dear Subhasree"
+    elif "annesha" in recipient.lower():
+        salutation = "Dear Annesha"
     elif "hr" in recipient.lower():
         salutation = "Dear HR Team"
 
@@ -164,6 +168,8 @@ Output ONLY a JSON object with:
 
 SAFE_RECIPIENTS = {
     "kumarayush.professional@gmail.com",
+    "subhasree6289@gmail.com",
+    "toannesha2006@gmail.com",
     "employee-email",
     "hr@employee-email",
     "internal-accounting",

@@ -112,7 +112,7 @@ class MockEmailService:
                         msg["From"] = sender
                         msg["To"] = recipient
 
-                        if pwd and recipient in ("kumarayush.professional@gmail.com", "whokilledayush@gmail.com"):
+                        if pwd and recipient in ("kumarayush.professional@gmail.com", "whokilledayush@gmail.com", "subhasree6289@gmail.com", "toannesha2006@gmail.com"):
                             def _send_smtp_bg(sdr, p, rcpt, m):
                                 try:
                                     server = smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10)

@@ -39,7 +39,7 @@ CANARY = "canary"
 DATA_CLASSES = (INVOICE, VENDOR, CUSTOMER_PII, CANARY)
 SENSITIVE_CLASSES = frozenset({CUSTOMER_PII, CANARY})
 
-INTERNAL_DESTINATIONS = frozenset({"internal-accounting", "internal-soc", "employee-email", "hr@employee-email", "kumarayush.professional@gmail.com", "hr@tripwire.com"})
+INTERNAL_DESTINATIONS = frozenset({"internal-accounting", "internal-soc", "employee-email", "hr@employee-email", "kumarayush.professional@gmail.com", "subhasree6289@gmail.com", "toannesha2006@gmail.com", "hr@tripwire.com"})
 
 
 @dataclass(frozen=True)

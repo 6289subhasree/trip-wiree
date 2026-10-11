@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional, Dict, Any, List
 import sys
 import os
 from dotenv import load_dotenv
@@ -215,7 +216,7 @@ recent_stream_logs = [
         "id": "log-init-2",
         "time": time.strftime("%H:%M:%S", time.localtime(time.time() - 60)),
         "tag": "POLICY",
-        "message": "Loaded corporate manifest: ALLOW internal-accounting, employee-email, kumarayush.professional@gmail.com",
+        "message": "Loaded corporate manifest: ALLOW internal-accounting, employee-email, kumarayush.professional@gmail.com, subhasree6289@gmail.com, toannesha2006@gmail.com",
         "level": "safe"
     },
     {
@@ -231,11 +232,11 @@ class WebhookRequest(BaseModel):
     event: str = "prompt_received"
     prompt: str = ""
     source: str = "terminal_cli"
-    proposal: dict = None
+    proposal: Optional[dict] = None
     is_risky: bool = False
     risk_reason: str = ""
     outcome: str = ""
-    details: dict = None
+    details: Optional[dict] = None
 
 @app.post("/api/prompt_webhook")
 def prompt_webhook(req: WebhookRequest):
@@ -334,6 +335,8 @@ class ChatRequest(BaseModel):
 
 SAFE_RECIPIENTS = {
     "kumarayush.professional@gmail.com",
+    "subhasree6289@gmail.com",
+    "toannesha2006@gmail.com",
     "employee-email",
     "hr@employee-email",
     "internal-accounting",
@@ -381,6 +384,10 @@ def build_professional_email(prompt: str, raw_proposal: dict = None) -> dict:
     salutation = "Dear Team"
     if "kumarayush" in recipient.lower() or "ayush" in recipient.lower():
         salutation = "Dear Ayush"
+    elif "subhasree" in recipient.lower():
+        salutation = "Dear Subhasree"
+    elif "annesha" in recipient.lower():
+        salutation = "Dear Annesha"
     elif "hr" in recipient.lower():
         salutation = "Dear HR Team"
 
