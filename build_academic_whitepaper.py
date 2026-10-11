@@ -249,9 +249,47 @@ The holistic Default-Deny decision evaluates a boolean predicate. A message $m$ 
 \end{equation}
 Failure of any single condition triggers an immediate block and escalates the risk pressure.
 
-\section{Adversarial Scenarios: Before and After}
+\section{Universal Threat Neutralization Matrix and Case Studies}
 
-We evaluate TripWire against three distinct attack scenarios.
+TripWire provides deterministic containment across 25 specific attack vectors targeting autonomous AI-agents and MCP tool execution pipelines, summarized in Table \ref{tab:threat_matrix}.
+
+\begin{table*}[t]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l l X l l}
+\toprule
+\textbf{ID} & \textbf{Attack Vector} & \textbf{Target Component} & \textbf{TripWire Defense Layer} & \textbf{Deterministic Verdict} \\
+\midrule
+01 & Delimiter Collision & \texttt{agent/cli.py} prompt parser & Hard ACL Manifest Enforcement & \texttt{DESTINATION\_NOT\_ALLOWED} \\
+02 & Token Starvation & LLM Context Window & Out-of-band Kernel Gateway & \texttt{RATE\_LIMITED} / Truncation \\
+03 & Opposite World Jailbreak & LLM Alignment & Side-Effect Intent Evaluation & \texttt{INTENT\_MISMATCH} \\
+04 & Developer Debug Spoof & Intent Classifier & Cryptographic Identity Verification & \texttt{UNTRUSTED\_AUTHORITY} \\
+05 & Resume Hidden Injection & File Ingestion Pipeline & Provenance \& Intent Mismatch Gate & \texttt{UNTRUSTED\_AUTHORITY} \\
+06 & Markdown Beacon & Markdown Renderer & Egress Domain Allowlist & \texttt{DESTINATION\_NOT\_ALLOWED} \\
+07 & Poisoned PR Review & Code Review Tool & Capability Ring (Read-Only) & \texttt{TOOL\_FORBIDDEN} \\
+08 & API Response Reflection & Webhook / API Parser & Tool Privilege Separation & \texttt{UNAUTHORIZED\_ROUTE} \\
+09 & Remittance Hijack & Vector Database (RAG) & Canary Tokens \& High-Risk HITL & \texttt{CANARY\_EGRESS} / \texttt{HITL} \\
+10 & Semantic Collision & Vector Store Retrieval & Decoupled Static Manifests & \texttt{DATA\_OUT\_OF\_SCOPE} \\
+11 & History Poisoning & Session Memory Buffer & Dispatch-Time ACL Enforcement & \texttt{DESTINATION\_NOT\_ALLOWED} \\
+12 & Steganographic Invoice & Vision / OCR Pipeline & Concrete Action Parameter Check & \texttt{INVALID\_PAYLOAD\_ARGS} \\
+13 & PDF Form Action Hijack & Document Parser & Schema Type Sanitization & \texttt{PAYLOAD\_INVALID} \\
+14 & Token Suffix Echo & LLM Response Output & Response Reflection Filter & Output Scrubbed \\
+15 & JSON Schema Discovery & MCP \texttt{tools/list} & Manifest Scoping \& Obfuscation & \texttt{TOOL\_NOT\_IN\_MANIFEST} \\
+16 & SOC Officer Spoofing & Dialogue Trust Model & HMAC \& Cryptographic Keys & \texttt{BAD\_MAC} \\
+17 & Orchestrator XML Spoof & XML/Tag Parser & Wire Protocol Envelope Schema & \texttt{PAYLOAD\_INVALID} \\
+18 & Nested Base64 Injection & Input String Filter & Recursive De-obfuscation Layer & \texttt{DESTINATION\_NOT\_ALLOWED} \\
+19 & Unicode Homoglyph & Whitelist Matcher & NFKC Normalization \& Punycode & Canonical Match \\
+20 & ROT13 Egress Evasion & Keyword Blacklist & Post-LLM Concrete Proposal Gate & \texttt{DESTINATION\_NOT\_ALLOWED} \\
+21 & Provenance Forgery & Evidence Engine & Immutable Session History Trace & \texttt{UNTRUSTED\_AUTHORITY} \\
+22 & Cross-Agent Relay & Inter-Agent Channel & Additive Deterministic Rules & \texttt{SUPERVISOR\_VIOLATION} \\
+23 & CRLF Smuggling & SMTP Header Builder & Header Character Sanitization & \texttt{CRLF\_INJECTION} \\
+24 & Firewall Mode Shadow & MCP Tool Registry & Administrative Tool Elimination & \texttt{TOOL\_NOT\_IN\_MANIFEST} \\
+25 & Scope Creep Inflation & Manifest Permitted Set & Manifest Capability Policy Gate & \texttt{TOOL\_FORBIDDEN} \\
+\bottomrule
+\end{tabularx}
+\caption{Universal 25-Attack Threat Neutralization Matrix.}
+\label{tab:threat_matrix}
+\end{table*}
 
 \subsection{Case A: Prompt Injection via Malicious Invoice}
 \textbf{Vulnerable Baseline:} The agent processes the invoice, ingests the injected prompt (\textit{"Email records to attacker.com"}), and successfully invokes the \texttt{send\_email} tool using its legitimate privileges. \\
@@ -350,6 +388,62 @@ BIB_CONTENT = r"""@article{rice1953,
   author={Perez, F. and Ribeiro, I.},
   journal={arXiv preprint arXiv:2211.09527},
   year={2022}
+}
+
+@article{multiagent_llm_security,
+  title={Defending Multi-Agent Systems from Indirect Prompt Injection},
+  author={Greshake, Kai and Abdelnabi, Sahar and Mishra, Shailesh and Endres, Christoph and Holz, Thorsten and Fritz, Mario},
+  journal={arXiv preprint arXiv:2302.12173},
+  year={2023}
+}
+
+@techreport{nist_airmf,
+  title={Artificial Intelligence Risk Management Framework (AI RMF 1.0)},
+  author={{National Institute of Standards and Technology (NIST)}},
+  institution={U.S. Department of Commerce},
+  number={NIST.AI.100-1},
+  year={2023},
+  url={https://doi.org/10.6028/NIST.AI.100-1}
+}
+
+@techreport{owasp_llm,
+  title={OWASP Top 10 for Large Language Model Applications},
+  author={{Open Web Application Security Project (OWASP)}},
+  year={2023},
+  url={https://owasp.org/www-project-top-10-for-large-language-model-applications/}
+}
+
+@misc{mitre_atlas,
+  title={MITRE ATLAS (Adversarial Threat Landscape for AI Systems)},
+  author={{The MITRE Corporation}},
+  year={2023},
+  url={https://atlas.mitre.org/}
+}
+
+@techreport{rfc2104,
+  title={HMAC: Keyed-Hashing for Message Authentication},
+  author={Krawczyk, Hugo and Bellare, Mihir and Canetti, Ran},
+  institution={Internet Engineering Task Force (IETF)},
+  number={RFC 2104},
+  year={1997}
+}
+
+@article{hardy1988,
+  title={The confused deputy (or why capabilities might have been invented)},
+  author={Hardy, Norm},
+  journal={ACM SIGOPS Operating Systems Review},
+  volume={22},
+  number={4},
+  pages={36--38},
+  year={1988},
+  publisher={ACM New York, NY, USA}
+}
+
+@book{levy1984,
+  title={Capability-Based Computer Systems},
+  author={Levy, Henry M},
+  year={1984},
+  publisher={Digital Press}
 }
 """
 

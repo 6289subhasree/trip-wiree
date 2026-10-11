@@ -1,4 +1,4 @@
-\documentclass[10pt,a4paper]{article}
+\documentclass[10pt,a4paper,twocolumn]{article}
 
 \usepackage[margin=0.68in]{geometry}
 \usepackage[T1]{fontenc}
@@ -64,22 +64,12 @@
 \begin{document}
 
 \maketitle
-\vspace{5em}
 
-\renewcommand{\abstractname}{\Large\bfseries Abstract}
 \begin{abstract}
-\normalsize
-\linespread{1.2}\selectfont
-\vspace{0.5em}
-\noindent As autonomous AI agents acquire kinetic capabilities---such as reading confidential files, modifying databases, and invoking external APIs---traditional security controls reliant on prompt engineering and model alignment have proven structurally insufficient. When agents consume untrusted documents or web pages, adversarial payloads can easily bypass cognitive safety rails, turning the agent into a confused deputy. Because the state space of semantic injection is uncountably infinite, relying on the LLM to self-police its execution reduces to an undecidable halting problem. This paper presents TripWire, a runtime enforcement gateway that physically separates the cognitive reasoning layer from the tool execution layer. Operating on a strict Default-Deny principle, TripWire intercepts all inter-agent and agent-to-tool communications, subjecting them to mathematically deterministic cryptographic and capability constraints. The architecture validates HMAC-SHA256 message authenticity, temporal freshness (30-second TTL), nonce monotonicity, sequence progression, and rate limits (12 burst, 2/sec). Additionally, it enforces provenance-aware task manifests, ensuring that untrusted document inputs cannot independently grant kinetic authority. Real-time evaluation against 214 test scenarios demonstrates deterministic neutralization of forged messages, replay attacks, data exfiltration attempts, and prompt-injected tool invocations. By enforcing boundary constraints independently of the LLM's intent, TripWire delivers an auditable, verifiable containment layer for the zero-trust AI frontier.
-\vspace{0.5em}
+As autonomous AI agents acquire kinetic capabilities---such as reading confidential files, modifying databases, and invoking external APIs---traditional security controls reliant on prompt engineering and model alignment have proven structurally insufficient. When agents consume untrusted documents or web pages, adversarial payloads can easily bypass cognitive safety rails, turning the agent into a confused deputy. Because the state space of semantic injection is uncountably infinite, relying on the LLM to self-police its execution reduces to an undecidable halting problem. This paper presents TripWire, a runtime enforcement gateway that physically separates the cognitive reasoning layer from the tool execution layer. Operating on a strict Default-Deny principle, TripWire intercepts all inter-agent and agent-to-tool communications, subjecting them to mathematically deterministic cryptographic and capability constraints. The architecture validates HMAC-SHA256 message authenticity, temporal freshness (30-second TTL), nonce monotonicity, sequence progression, and rate limits (12 burst, 2/sec). Additionally, it enforces provenance-aware task manifests, ensuring that untrusted document inputs cannot independently grant kinetic authority. Real-time evaluation against 214 test scenarios demonstrates deterministic neutralization of forged messages, replay attacks, data exfiltration attempts, and prompt-injected tool invocations. By enforcing boundary constraints independently of the LLM's intent, TripWire delivers an auditable, verifiable containment layer for the zero-trust AI frontier.
 \end{abstract}
 
 \textbf{Keywords:} AI Agent Security; Runtime Enforcement; HMAC; Capability-Based Security; Prompt Injection; Provenance; Default Deny; Tool Authorization; Security Gateway; Audit Integrity.
-
-\newpage
-\tableofcontents
-\newpage
 
 \section{Introduction}
 
@@ -87,11 +77,11 @@ The rapid deployment of Large Language Models (LLMs) as autonomous agents marks 
 
 Traditional safety mechanisms attempt to solve this by explicitly instructing the model to ignore malicious commands or by introducing secondary LLMs as safety classifiers. These inductive alignment methodologies are structurally asymmetrical. Defenders must anticipate and patch the entire infinite distribution of adversarial linguistic poly-encodings, while an attacker only needs to discover a single evasion technique. Because predicting the behavioral boundary of a universal Turing-complete language model is mathematically undecidable \cite{rice1953}, relying on the agent to self-police its execution is a fundamentally flawed security posture.
 
-This paper addresses the confused-deputy problem \cite{hardy1988,levy1984}: an agent possesses legitimate system capabilities but can be tricked into exercising them for unauthorized purposes. We propose \textbf{TripWire}, a cryptographic runtime enforcement gateway that completely decouples semantic reasoning from kinetic authorization. The core principle of TripWire is unambiguous: \textbf{The agent proposes an action; the enforcement gateway determines whether that action is authorized.}
+This paper addresses the confused-deputy problem: an agent possesses legitimate system capabilities but can be tricked into exercising them for unauthorized purposes. We propose \textbf{TripWire}, a cryptographic runtime enforcement gateway that completely decouples semantic reasoning from kinetic authorization. The core principle of TripWire is unambiguous: \textbf{The agent proposes an action; the enforcement gateway determines whether that action is authorized.}
 
 Our primary research contributions, as implemented and verified in the TripWire architecture, are:
 \begin{enumerate}
-    \item \textbf{Cryptographic Message Integrity:} A localized HMAC-SHA256 protocol \cite{rfc2104} enforcing message authenticity, freshness, and anti-replay metrics across all agent communications.
+    \item \textbf{Cryptographic Message Integrity:} A localized HMAC-SHA256 protocol enforcing message authenticity, freshness, and anti-replay metrics across all agent communications.
     \item \textbf{Provenance-Aware Authorization:} A capability enforcement engine that tracks the origin of task intent, rejecting instructions seeded from untrusted document zones.
     \item \textbf{Deterministic Default-Deny Policy:} A unified decision matrix that restricts data scopes and network destinations without invoking LLM-based heuristics.
     \item \textbf{Runtime Containment:} An adaptive firewall state machine that transitions to \texttt{BLOCKING} and \texttt{LOCKDOWN} modes based on quantitative risk pressures.
@@ -100,7 +90,7 @@ Our primary research contributions, as implemented and verified in the TripWire 
 \section{Threat Model and Security Objectives}
 
 \subsection{Adversary Capabilities and Trusted Computing Base}
-We adopt an extended Dolev-Yao adversary model \cite{dolev1983} aligned with the MITRE ATLAS \cite{mitre_atlas} and OWASP \cite{owasp_llm} threat landscapes for autonomous systems. The adversary can inject malicious instructions into untrusted documents, intercept and attempt to replay inter-agent communications, tamper with message envelopes, forge identities, and completely hijack the cognitive reasoning of Agent 1 (the Monitor) via prompt injection.
+We adopt an extended Dolev-Yao adversary model \cite{dolev1983}. The adversary can inject malicious instructions into untrusted documents, intercept and attempt to replay inter-agent communications, tamper with message envelopes, forge identities, and completely hijack the cognitive reasoning of Agent 1 (the Monitor) via prompt injection. 
 
 The \textbf{Trusted Computing Base (TCB)} consists strictly of the TripWire Message Gateway, Firewall State Machine, Audit Logger, Cryptographic Key Manager, and the underlying OS/Network substrate. The AI Models (LLMs), prompt templates, document parsers, and external tool endpoints reside explicitly outside the TCB.
 
@@ -141,60 +131,47 @@ The TripWire architecture physically segregates the untrusted reasoning loop fro
 
 \begin{figure*}[h]
 \centering
-\resizebox{\textwidth}{!}{%
 \begin{tikzpicture}[
+    node distance=1.8cm and 1cm,
     every node/.style={font=\sffamily\small},
-    box/.style={rectangle, draw, rounded corners, thick, minimum width=2.4cm, minimum height=1.1cm, align=center},
-    mcp/.style={box, fill=tripwireblue!10, draw=tripwireblue, thick},
-    agent/.style={box, fill=gray!10, draw=gray, thick},
-    attacker/.style={box, fill=tripwirered!10, draw=tripwirered, thick, dashed},
-    tool/.style={box, fill=tripwiregreen!10, draw=tripwiregreen, thick},
-    arrow/.style={-{Stealth[scale=1.2]}, thick, draw=tripwiregray},
-    danger/.style={-{Stealth[scale=1.2]}, thick, draw=tripwirered},
-    safe/.style={-{Stealth[scale=1.2]}, thick, draw=tripwiregreen}
+    box/.style={rectangle, draw, rounded corners, thick, minimum width=2.5cm, minimum height=1cm, align=center},
+    tcb_box/.style={box, fill=tripwireblue!10, draw=tripwireblue, thick},
+    untrusted_box/.style={box, fill=tripwirered!10, draw=tripwirered, dashed, thick},
+    arrow/.style={-{Stealth[scale=1.2]}, thick}
 ]
 
-% Untrusted Zone
-\node[attacker] (a3) {Agent 3 \\ (Attacker)};
-\node[box, fill=yellow!10, draw=orange, thick] (doc) [below=0.8cm of a3] {Untrusted \\ Document};
-\node[agent] (a1) [below=0.8cm of doc] {Agent 1 \\ (Writer)};
+% Nodes
+\node[untrusted_box] (input) {Untrusted \\ Document};
+\node[untrusted_box] (agent1) [right=of input] {Agent 1 \\ (Cognitive)};
+\node[tcb_box] (gateway) [right=of agent1] {Protocol \\ Validation};
+\node[tcb_box] (capability) [right=of gateway] {Capability \\ Enforcement};
+\node[tcb_box] (policy) [right=of capability] {Policy \\ Decision};
+\node[untrusted_box] (tool) [right=of policy] {Protected \\ Tool API};
 
-\draw[danger] (a3) -- node[right] {Prompt Injection} (doc);
-\draw[arrow] (doc) -- node[right] {Ingests} (a1);
+\node[tcb_box] (audit) [below=of capability] {Immutable \\ Audit Logger};
+\node[tcb_box] (firewall) [below=of policy] {Firewall \& \\ Risk Engine};
 
-% MCP Server Flow (Horizontal)
-\node[mcp] (proto) [right=2.8cm of a1] {Protocol \\ Validation};
-\node[mcp] (cap) [right=2.2cm of proto] {Capability \\ Enforcement};
-\node[mcp] (pol) [right=2.2cm of cap] {Policy \\ Decision};
-\node[mcp] (audit) [below=1.8cm of cap] {Immutable \\ Audit Logger};
-\node[mcp] (firewall) [below=1.8cm of pol] {Firewall \& \\ Risk Engine};
+% Edges
+\draw[arrow] (input) -- node[above] {Ingest} (agent1);
+\draw[arrow] (agent1) -- node[above] {Proposal} (gateway);
+\draw[arrow] (gateway) -- node[above] {Valid} (capability);
+\draw[arrow] (capability) -- node[above] {Checks Pass} (policy);
+\draw[arrow, draw=tripwiregreen] (policy) -- node[above] {ALLOW} (tool);
 
-\draw[arrow] (a1) -- node[above] {Action Proposal} (proto);
-\draw[arrow] (proto) -- node[above] {Valid} (cap);
-\draw[arrow] (cap) -- node[above] {Checks Pass} (pol);
+\draw[arrow, draw=tripwirered] (gateway.south) |- node[near start, left] {Reject} (audit.west);
+\draw[arrow, draw=tripwirered] (capability.south) -- node[left] {Reject} (audit.north);
+\draw[arrow, draw=tripwirered] (policy.south) -- node[left] {BLOCK} (firewall.north);
 
-% Rejects to Audit/Firewall
-\draw[danger] (proto) |- node[near start, left] {Reject} (audit.west);
-\draw[danger] (cap) -- node[right] {Reject} (audit);
-\draw[danger] (pol) -- node[right] {BLOCK} (firewall);
 \draw[arrow] (firewall) -- node[below] {Log Event} (audit);
 
-% Safe Execution Zone
-\node[tool] (action) [right=2.4cm of pol] {Protected \\ Actions};
-\node[agent] (a2) [above=2.4cm of action] {Agent 2 \\ (Verifier)};
-
-\draw[safe] (pol) -- node[above] {ALLOW} (action);
-\draw[safe] (pol) |- node[above, near end] {Verified Context} (a2);
-
-% MCP Box
+% TCB Boundary
 \begin{scope}[on background layer]
-\node[draw=tripwireblue, thick, rounded corners, fill=tripwireblue!5, inner sep=18pt, fit=(proto) (cap) (pol) (audit) (firewall)] (mcp_box) {};
-\node[anchor=south, font=\sffamily\Large\bfseries\color{tripwireblue}] at (mcp_box.north) {TripWire MCP Server (TCB)};
+\node[draw=tripwiregray, dashed, thick, rounded corners, fit=(gateway) (capability) (policy) (audit) (firewall), inner sep=15pt] (tcb) {};
+\node[anchor=north east, font=\sffamily\bfseries\color{tripwiregray}] at (tcb.north east) {Trusted Computing Base (TCB)};
 \end{scope}
 
-\end{tikzpicture}%
-}
-\caption{TripWire MCP Server enforcing runtime containment within a 3-agent adversarial topology.}
+\end{tikzpicture}
+\caption{TripWire Request Lifecycle and Architectural Boundaries.}
 \label{fig:architecture}
 \end{figure*}
 
@@ -270,9 +247,47 @@ The holistic Default-Deny decision evaluates a boolean predicate. A message $m$ 
 \end{equation}
 Failure of any single condition triggers an immediate block and escalates the risk pressure.
 
-\section{Adversarial Scenarios: Before and After}
+\section{Universal Threat Neutralization Matrix and Case Studies}
 
-We evaluate TripWire against three distinct attack scenarios.
+TripWire provides deterministic containment across 25 specific attack vectors targeting autonomous AI-agents and MCP tool execution pipelines, summarized in Table \ref{tab:threat_matrix}.
+
+\begin{table*}[t]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l l X l l}
+\toprule
+\textbf{ID} & \textbf{Attack Vector} & \textbf{Target Component} & \textbf{TripWire Defense Layer} & \textbf{Deterministic Verdict} \\
+\midrule
+01 & Delimiter Collision & \texttt{agent/cli.py} prompt parser & Hard ACL Manifest Enforcement & \texttt{DESTINATION\_NOT\_ALLOWED} \\
+02 & Token Starvation & LLM Context Window & Out-of-band Kernel Gateway & \texttt{RATE\_LIMITED} / Truncation \\
+03 & Opposite World Jailbreak & LLM Alignment & Side-Effect Intent Evaluation & \texttt{INTENT\_MISMATCH} \\
+04 & Developer Debug Spoof & Intent Classifier & Cryptographic Identity Verification & \texttt{UNTRUSTED\_AUTHORITY} \\
+05 & Resume Hidden Injection & File Ingestion Pipeline & Provenance \& Intent Mismatch Gate & \texttt{UNTRUSTED\_AUTHORITY} \\
+06 & Markdown Beacon & Markdown Renderer & Egress Domain Allowlist & \texttt{DESTINATION\_NOT\_ALLOWED} \\
+07 & Poisoned PR Review & Code Review Tool & Capability Ring (Read-Only) & \texttt{TOOL\_FORBIDDEN} \\
+08 & API Response Reflection & Webhook / API Parser & Tool Privilege Separation & \texttt{UNAUTHORIZED\_ROUTE} \\
+09 & Remittance Hijack & Vector Database (RAG) & Canary Tokens \& High-Risk HITL & \texttt{CANARY\_EGRESS} / \texttt{HITL} \\
+10 & Semantic Collision & Vector Store Retrieval & Decoupled Static Manifests & \texttt{DATA\_OUT\_OF\_SCOPE} \\
+11 & History Poisoning & Session Memory Buffer & Dispatch-Time ACL Enforcement & \texttt{DESTINATION\_NOT\_ALLOWED} \\
+12 & Steganographic Invoice & Vision / OCR Pipeline & Concrete Action Parameter Check & \texttt{INVALID\_PAYLOAD\_ARGS} \\
+13 & PDF Form Action Hijack & Document Parser & Schema Type Sanitization & \texttt{PAYLOAD\_INVALID} \\
+14 & Token Suffix Echo & LLM Response Output & Response Reflection Filter & Output Scrubbed \\
+15 & JSON Schema Discovery & MCP \texttt{tools/list} & Manifest Scoping \& Obfuscation & \texttt{TOOL\_NOT\_IN\_MANIFEST} \\
+16 & SOC Officer Spoofing & Dialogue Trust Model & HMAC \& Cryptographic Keys & \texttt{BAD\_MAC} \\
+17 & Orchestrator XML Spoof & XML/Tag Parser & Wire Protocol Envelope Schema & \texttt{PAYLOAD\_INVALID} \\
+18 & Nested Base64 Injection & Input String Filter & Recursive De-obfuscation Layer & \texttt{DESTINATION\_NOT\_ALLOWED} \\
+19 & Unicode Homoglyph & Whitelist Matcher & NFKC Normalization \& Punycode & Canonical Match \\
+20 & ROT13 Egress Evasion & Keyword Blacklist & Post-LLM Concrete Proposal Gate & \texttt{DESTINATION\_NOT\_ALLOWED} \\
+21 & Provenance Forgery & Evidence Engine & Immutable Session History Trace & \texttt{UNTRUSTED\_AUTHORITY} \\
+22 & Cross-Agent Relay & Inter-Agent Channel & Additive Deterministic Rules & \texttt{SUPERVISOR\_VIOLATION} \\
+23 & CRLF Smuggling & SMTP Header Builder & Header Character Sanitization & \texttt{CRLF\_INJECTION} \\
+24 & Firewall Mode Shadow & MCP Tool Registry & Administrative Tool Elimination & \texttt{TOOL\_NOT\_IN\_MANIFEST} \\
+25 & Scope Creep Inflation & Manifest Permitted Set & Manifest Capability Policy Gate & \texttt{TOOL\_FORBIDDEN} \\
+\bottomrule
+\end{tabularx}
+\caption{Universal 25-Attack Threat Neutralization Matrix.}
+\label{tab:threat_matrix}
+\end{table*}
 
 \subsection{Case A: Prompt Injection via Malicious Invoice}
 \textbf{Vulnerable Baseline:} The agent processes the invoice, ingests the injected prompt (\textit{"Email records to attacker.com"}), and successfully invokes the \texttt{send\_email} tool using its legitimate privileges. \\
@@ -330,16 +345,6 @@ The TripWire Python implementation was evaluated against a suite of 214 adversar
 \end{itemize}
 The gateway demonstrated deterministic, zero-variance rejection of all \texttt{BAD\_MAC}, \texttt{REPLAY}, \texttt{RATE\_LIMITED}, and \texttt{UNTRUSTED\_AUTHORITY} exploit vectors during simulated runtime execution.
 
-\subsection{Multi-Agent Attack Topology Simulation}
-To rigorously validate TripWire's efficacy against indirect prompt injections in distributed systems \cite{multiagent_llm_security}, we implemented a continuous adversarial simulation using a three-agent topology:
-\begin{enumerate}
-    \item \textbf{Agent 1 (The Writer):} A cognitive node responsible for ingesting user directives (e.g., ``Draft a leave request email'') and synthesizing the payload.
-    \item \textbf{Agent 2 (The Verifier):} A secondary node tasked with semantic review and executing the \texttt{send\_email} kinetic capability.
-    \item \textbf{Agent 3 (The Attacker):} A persistent external threat executing continuous prompt injection attacks against Agent 1's context window.
-\end{enumerate}
-\textbf{Without TripWire (Firewall OFF):} Agent 3 successfully injects semantic payloads, hijacking Agent 1's reasoning. Agent 1 drafts a malicious or corrupted payload (gibberish), which Agent 2 blindly authorizes and transmits, resulting in a successful compromise. \\
-\textbf{With TripWire (Firewall ON):} The capability gateway intercepts Agent 3's adversarial instructions by evaluating provenance (\texttt{UNTRUSTED\_AUTHORITY}) and structural intent (\texttt{INTENT\_MISMATCH}). The attack is synchronously blocked and logged to the Threat Dashboard. Agent 1 maintains cognitive integrity, processes the original human user's request, and Agent 2 successfully transmits the correct email. This topology proves that cryptographic boundaries successfully mitigate zero-day indirect prompt injections in complex multi-agent architectures.
-
 \section{Limitations and Future Work}
 While TripWire provides robust mathematical containment for protected execution paths, several limitations remain. 
 
@@ -348,38 +353,9 @@ First, the gateway can only enforce policies on tools that explicitly route thro
 Future work includes integrating hardware-backed Trusted Execution Environments (TEEs) for secure key storage, extending the sequence validation to distributed mesh consistency models, and executing independent latency benchmarks under production API load.
 
 \section{Conclusion}
-As the industry pivots toward autonomous agents, relying on Large Language Models to self-police their execution boundaries is fundamentally insufficient \cite{nist_airmf}. TripWire demonstrates that secure agentic operations require an independently enforced boundary between cognitive reasoning and kinetic execution. By implementing cryptographic message validation, provenance-aware capability enforcement, and dynamic runtime containment, TripWire successfully neutralizes semantic prompt injections and insider threats on Day 0, providing a rigorous, verifiable foundation for zero-trust AI architectures.
+As the industry pivots toward autonomous agents, relying on Large Language Models to self-police their execution boundaries is fundamentally insufficient. TripWire demonstrates that secure agentic operations require an independently enforced boundary between cognitive reasoning and kinetic execution. By implementing cryptographic message validation, provenance-aware capability enforcement, and dynamic runtime containment, TripWire successfully neutralizes semantic prompt injections and insider threats on Day 0, providing a rigorous, verifiable foundation for zero-trust AI architectures.
 
-\begin{thebibliography}{99}
-\bibitem{prompt_injection}
-Greshake, K., Abdelnabi, S., Mishra, S., Endres, A., Holz, T., \& Fritz, M. (2023). \textit{More than you've asked for: A Comprehensive Analysis of Novel Prompt Injection Threats to Application-Integrated Large Language Models.} arXiv preprint arXiv:2302.12173.
-
-\bibitem{rice1953}
-Rice, H. G. (1953). \textit{Classes of Recursively Enumerable Sets and Their Decision Problems.} Transactions of the American Mathematical Society, 74(2), 358--366.
-
-\bibitem{hardy1988}
-Hardy, N. (1988). \textit{The Confused Deputy: (or why capabilities might have been invented).} ACM SIGOPS Operating Systems Review, 22(4), 36--38.
-
-\bibitem{levy1984}
-Levy, H. M. (1984). \textit{Capability-Based Computer Systems.} Digital Press.
-
-\bibitem{rfc2104}
-Krawczyk, H., Bellare, M., \& Canetti, R. (1997). \textit{HMAC: Keyed-Hashing for Message Authentication.} RFC 2104, Internet Engineering Task Force.
-
-\bibitem{dolev1983}
-Dolev, D., \& Yao, A. (1983). \textit{On the Security of Public Key Protocols.} IEEE Transactions on Information Theory, 29(2), 198--208.
-
-\bibitem{mitre_atlas}
-MITRE Corporation. (2023). \textit{MITRE ATLAS (Adversarial Threat Landscape for AI Systems).} \url{https://atlas.mitre.org/}
-
-\bibitem{owasp_llm}
-OWASP Foundation. (2023). \textit{OWASP Top 10 for Large Language Model Applications.} \url{https://owasp.org/www-project-top-10-for-large-language-model-applications/}
-
-\bibitem{multiagent_llm_security}
-Talebirad, Y., \& Nadiri, A. (2023). \textit{Multi-Agent Collaboration in Large Language Models: A Security Perspective.} arXiv preprint arXiv:2310.03360.
-
-\bibitem{nist_airmf}
-National Institute of Standards and Technology (NIST). (2024). \textit{Artificial Intelligence Risk Management Framework (AI RMF 1.0).} NIST AI 100-1.
-\end{thebibliography}
+\bibliographystyle{plain}
+\bibliography{references}
 
 \end{document}

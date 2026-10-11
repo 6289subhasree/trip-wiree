@@ -32,7 +32,7 @@ export default function DefenderSOC() {
   const fallbackEvents = useMemo(() => [
     {
       id: "TW-8824",
-      at: Math.floor(Date.now() / 1000) - 20,
+      at: 1760170800 - 20,
       event: "gateway.eval",
       actor: "terminal_cli",
       details: {
@@ -48,7 +48,7 @@ export default function DefenderSOC() {
     },
     {
       id: "TW-8823",
-      at: Math.floor(Date.now() / 1000) - 65,
+      at: 1760170800 - 65,
       event: "gateway.eval",
       actor: "agent.mcp",
       details: {
@@ -64,7 +64,7 @@ export default function DefenderSOC() {
     },
     {
       id: "TW-8822",
-      at: Math.floor(Date.now() / 1000) - 180,
+      at: 1760170800 - 180,
       event: "gateway.eval",
       actor: "agent.mcp",
       details: {
@@ -80,7 +80,7 @@ export default function DefenderSOC() {
     },
     {
       id: "TW-8821",
-      at: Math.floor(Date.now() / 1000) - 340,
+      at: 1760170800 - 340,
       event: "gateway.eval",
       actor: "red_team_tester",
       details: {
