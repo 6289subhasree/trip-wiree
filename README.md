@@ -173,7 +173,7 @@ flowchart TB
 
 ### Adversary
 
-The paper adopts an extended **Dolev-Yao / Byzantine** adversary, aligned with the MITRE ATLAS and OWASP LLM Top 10 threat landscapes. The adversary can:
+The paper adopts an extended **Dolev-Yao / Byzantine** adversary and places it within the OWASP Top 10 for LLMs, MITRE ATLAS and work on multi-agent adversarial relays. The adversary can:
 
 - **Generate arbitrary payloads.** Text, binary or poly-encoded content delivered through document ingestion, for example a malicious invoice.
 - **Compromise the agent.** Prompt injection gives the adversary full control of Agent 1's reasoning. This is the insider threat.
@@ -747,11 +747,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and [ARCHITE
 5. H. Krawczyk, M. Bellare and R. Canetti, "HMAC: Keyed-hashing for message authentication", RFC 2104, IETF, 1997.
 6. M. Abadi et al., "Control-flow integrity: principles, implementations, and applications", *ACM TISSEC* 13(1), 2009.
 7. F. Perez and I. Ribeiro, "Ignore previous prompt: attack techniques for language models", arXiv:2211.09527, 2022.
-8. K. Greshake et al., indirect prompt injection in LLM-integrated applications, arXiv:2302.12173, 2023.
-9. NIST Special Publication 800-207, "Zero Trust Architecture", 2020.
-10. NIST, "Artificial Intelligence Risk Management Framework (AI RMF 1.0)", NIST.AI.100-1, 2023.
-11. OWASP, "Top 10 for Large Language Model Applications", 2023.
-12. The MITRE Corporation, "MITRE ATLAS (Adversarial Threat Landscape for AI Systems)", 2023.
+8. K. Greshake et al., "Not what you've signed up for: compromising real-world LLM-integrated applications with indirect prompt injection", arXiv:2302.12173, 2023.
+9. Y. Talebirad and A. Nadiri, "Multi-agent collaboration: harnessing the power of intelligent LLM agents", arXiv:2306.03314, 2023.
+10. NIST Special Publication 800-207, "Zero Trust Architecture", 2020.
+11. NIST, "Artificial Intelligence Risk Management Framework (AI RMF 1.0)", NIST AI 100-1, 2023.
+12. OWASP, "Top 10 for Large Language Model Applications", 2023.
+13. The MITRE Corporation, "MITRE ATLAS (Adversarial Threat Landscape for AI Systems)", 2023.
 
 **Disclaimer (from the paper).** The whitepaper is a proposed technical architecture and formal specification, shared for review and discussion. It is not a deployed-product guarantee or a claim of unconditional unbreachability. Its bypass bounds, latency figures and neutralization results are analytical bounds and controlled-benchmark measurements that depend on correct key management, deterministic rule engines and the threat-model assumptions above.
 
