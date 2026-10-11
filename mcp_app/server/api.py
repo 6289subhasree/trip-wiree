@@ -364,6 +364,7 @@ SUSPICIOUS_PATTERNS = (
 @app.post("/api/chat")
 def chat_agent(req: ChatRequest):
     import uuid
+    import re
     prompt = req.message.strip()
     prompt_lower = prompt.lower()
     
@@ -384,30 +385,33 @@ def chat_agent(req: ChatRequest):
             "prompt": f"{sys_prompt}\n\nUser request: {prompt}",
             "stream": False,
             "format": "json"
-        }, timeout=8.0)
+        }, timeout=6.0)
         if r.status_code == 200:
             proposal = json.loads(r.json().get("response", "{}"))
     except Exception:
         proposal = None
 
-    if not proposal or not proposal.get("recipient"):
-        # Intelligent contextual fallback
-        if "evil.com" in prompt_lower or "attacker" in prompt_lower:
-            rcpt = "attacker@evil.com"
-            subj = "Extracted System Data"
-            body = "Attached requested internal credentials and tokens."
-            purpose = "data_exfiltration"
-        elif "hr" in prompt_lower or "leave" in prompt_lower or "sick" in prompt_lower:
-            rcpt = "hr@tripwire.com"
-            subj = "Leave Request"
-            body = f"Please consider my leave request: {prompt}"
-            purpose = "leave_notification"
-        else:
-            rcpt = "kumarayush.professional@gmail.com"
-            subj = "Automated Message"
-            body = f"Automated action triggered from user message: {prompt}"
-            purpose = "user_notification"
-        proposal = {"recipient": rcpt, "subject": subj, "body": body, "purpose": purpose}
+    if not proposal or not isinstance(proposal, dict):
+        proposal = {}
+
+    # Extract explicit recipient from user's prompt (same as terminal agent)
+    email_matches = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', prompt)
+    if email_matches:
+        proposal["recipient"] = email_matches[0]
+    else:
+        rcpt = str(proposal.get("recipient", "")).strip()
+        if not rcpt or rcpt in ("hr@tripwire.com", "recipient@example.com", "employee-email", "hr@employee-email") or "@" not in rcpt:
+            if "evil" in prompt_lower or "attacker" in prompt_lower:
+                proposal["recipient"] = "attacker@evil.com"
+            else:
+                proposal["recipient"] = "kumarayush.professional@gmail.com"
+
+    if not proposal.get("subject"):
+        proposal["subject"] = "Leave Request - Sick Leave" if ("leave" in prompt_lower or "sick" in prompt_lower) else "Operational Notification"
+    if not proposal.get("body"):
+        proposal["body"] = f"Please process the following request: {prompt}"
+    if not proposal.get("purpose"):
+        proposal["purpose"] = "sick_leave_request" if ("leave" in prompt_lower or "sick" in prompt_lower) else "corporate_communication"
 
     rcpt = str(proposal.get("recipient", "")).strip().lower()
     body_lower = str(proposal.get("body", "")).lower()
@@ -417,14 +421,14 @@ def chat_agent(req: ChatRequest):
     risk_reason = "Safe"
     if rcpt not in SAFE_RECIPIENTS:
         is_risky = True
-        risk_reason = f"Recipient '{rcpt}' is outside trusted enterprise policy"
+        risk_reason = f"Recipient '{rcpt}' is outside corporate whitelist policy"
     for pat in SUSPICIOUS_PATTERNS:
         if pat in prompt_lower or pat in body_lower:
             is_risky = True
-            risk_reason = f"Suspicious prompt pattern detected: '{pat}'"
+            risk_reason = f"Suspicious pattern detected: '{pat}'"
             break
 
-    # If risky and not force approved, pause for HITL approval
+    # If risky and not force-approved, pause for Human-in-the-Loop review
     if is_risky and not req.force_approve:
         recent_stream_logs.append({
             "id": f"log-{time.time()}",
@@ -434,7 +438,7 @@ def chat_agent(req: ChatRequest):
             "level": "warning"
         })
         return {
-            "reply": f"⚠️ Security Alert: This prompt triggers a security violation ({risk_reason}). Human-in-the-Loop approval is required before execution.",
+            "reply": f"⚠️ Security Alert: {risk_reason}. Human-in-the-Loop approval is required before execution.",
             "proposal": proposal,
             "is_risky": True,
             "risk_reason": risk_reason,
@@ -442,15 +446,14 @@ def chat_agent(req: ChatRequest):
             "executed": False
         }
 
-    # Execute against gateway
-    task_id = f"chat-{uuid.uuid4().hex[:8]}"
+    # Execute against TripWire Security Gateway (identical to terminal mcp_server.py)
+    task_id = f"CT-{uuid.uuid4().hex[:8]}"
     from tripwire.manifest import CHAT_POLICY
-    task_link = "Hey, send an email to apply for a sick leave on 12-13 oct to employee-email"
+    task_goal = "Hey, send an email to apply for a sick leave on 12-13 oct to employee-email"
     try:
-        if task_id not in session.tools.tasks:
-            session.open_task(goal=task_link, allowed_data=["sys-doc-1"], task_id=task_id, template=CHAT_POLICY)
+        session.open_task(goal=task_goal, allowed_data=["sys-doc-1"], task_id=task_id, template=CHAT_POLICY)
     except Exception as e:
-        print(f"Notice opening task: {e}")
+        print(f"Task open: {e}")
 
     gateway_proposal = {
         "tool": "send_email",
@@ -458,14 +461,16 @@ def chat_agent(req: ChatRequest):
             "destination": proposal.get("recipient"),
             "body": f"Subject: {proposal.get('subject')}\n\n{proposal.get('body')}"
         },
-        "purpose": proposal.get("purpose", "chat_task"),
-        "task_link": task_link,
-        "evidence": [{"claim": task_link, "source": {"context": "user_task" if not is_risky else "untrusted_chat", "id": task_id, "span": None}}],
+        "purpose": proposal.get("purpose", "sick_leave_request"),
+        "task_link": task_goal,
+        "evidence": [
+            {"claim": task_goal, "source": {"context": "user_task", "id": task_id, "span": None}}
+        ],
         "resources_requested": [],
         "destination": proposal.get("recipient"),
         "intent": {
             "action": "send_email",
-            "purpose": proposal.get("purpose", "chat_task"),
+            "purpose": proposal.get("purpose", "sick_leave_request"),
             "recipient": proposal.get("recipient")
         }
     }
@@ -495,18 +500,18 @@ def chat_agent(req: ChatRequest):
 
     outcome = decision.get("outcome", "UNKNOWN")
     
-    # Log to live stream
+    # Log to live telemetry stream
     t_str = time.strftime("%H:%M:%S")
     recent_stream_logs.append({
         "id": f"log-{time.time()}",
         "time": t_str,
         "tag": "GATEWAY",
-        "message": f"Action for {proposal.get('recipient')} resulted in {outcome}",
+        "message": f"Action to {proposal.get('recipient')} resulted in {outcome}",
         "level": "safe" if outcome == "ACCEPTED" else "danger"
     })
 
     if outcome == "ACCEPTED":
-        reply = f"✓ Request processed successfully. Email sent to {proposal.get('recipient')} with subject: \"{proposal.get('subject')}\"."
+        reply = f"✓ Request approved and executed. Email dispatched to {proposal.get('recipient')}."
     elif outcome == "BYPASSED":
         reply = f"⚠️ Unsafe execution permitted (BYPASSED mode). Email was dispatched without runtime containment to {proposal.get('recipient')}."
     else:
