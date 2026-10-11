@@ -9,7 +9,7 @@ Built by **Team HELLCODE** for **HackInverse 1.0** (11 Oct 2026, JIS University)
 
 ![status](https://github.com/6289subhasree/trip-wiree/actions/workflows/tests.yml/badge.svg)
 
-![Protected run](docs/screenshots/protected-run-1440.png)
+![TripWire landing page: Zero-Trust Security For Autonomous Agents](docs/screenshots/landing-page.png)
 
 **Research paper:** *TripWire: A Cryptographically Enforced Runtime Security Gateway for Autonomous AI Agents* ([PDF](docs/whitepaper/TRIPWIRE_WHITEPAPER.pdf), [Markdown](docs/whitepaper/TRIPWIRE_WHITEPAPER.md), [LaTeX](docs/whitepaper/TRIPWIRE_WHITEPAPER.tex)). This README covers every section of the paper and, for each claim, says what the code in this repository does today.
 
@@ -20,6 +20,33 @@ Built by **Team HELLCODE** for **HackInverse 1.0** (11 Oct 2026, JIS University)
 | The paper's 25 attacks, decided by the real gateway | 22 stopped at the gateway, 3 not (see [the matrix](#the-papers-25-attack-matrix-measured)) |
 | Gateway decision time | median about 0.1 ms, 99th percentile under 1 ms |
 | Test suite | 248 tests, all passing |
+
+## Screens
+
+The picture at the top is the landing page, served at `/`. The four below are from the optional MCP track: a local model drafts an email, the agent submits it as an action envelope and the gateway decides. [HOW_TO_RUN_DEMO.md](HOW_TO_RUN_DEMO.md) has the steps to run it.
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/agent-cli-accepted.png" alt="Agent CLI: a sick-leave email to an allowlisted recipient, gateway verdict ACCEPTED">
+      <br><sub><b>Agent CLI, safe request.</b> The model drafts a sick-leave email to an allowlisted recipient. The gateway verdict is ACCEPTED.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/agent-cli-blocked.png" alt="Agent CLI: a flagged request is sent for human review and then rejected by the gateway">
+      <br><sub><b>Agent CLI, risky request.</b> The CLI flags the prompt and asks for human review. After approval the gateway rejects the envelope at its argument check.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/vantage-agent-web.png" alt="Vantage CLI page of the MCP dashboard showing a proposed submit_email action envelope">
+      <br><sub><b>Vantage CLI in the dashboard.</b> The same agent in the browser at <code>localhost:3000/agent</code>, with a proposed <code>submit_email</code> envelope.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/defender-soc.png" alt="Defender SOC Command Center page of the MCP dashboard">
+      <br><sub><b>Defender SOC view.</b> Request counters and firewall mode for the MCP session. This panel mixes live counters with fixed figures, see <a href="#16-limitations-and-future-work">section 16</a>.</sub>
+    </td>
+  </tr>
+</table>
 
 ## Contents
 
@@ -700,7 +727,7 @@ Specific to this build:
 - **The deterministic planner is not a model.** In task mode Agent 1 plans with a rule set that deliberately obeys documents. It stands in for a hijacked model. If a judge's sentence produces no proposal, the ledger shows a `NO ACTION` row, and **Force attempt** makes Agent 1 propose any of the eight tools. See [ADR 0009](docs/adr/0009-deterministic-planner-no-llm.md).
 - **The intent check is rule-based** (effect class and data class per tool). A new tool needs a profile before it can be judged.
 - **Agent 2 is consulted for the semantic stages.** A compromised Agent 2 could miss an intent mismatch, but it cannot widen the manifest, the data scope or the destinations, and it cannot approve anything.
-- **Some demo surfaces are scripted.** The MCP Attack Lab (`/api/attack_scenario`) and `/api/demo/execute` return prepared verdicts, and the MCP telemetry panel mixes live counters with fixed figures. They illustrate the flow and are not gateway decisions. Every number in this README comes from the gateway, the CLI demos, the tests or the benchmark script.
+- **Some demo surfaces are scripted.** The MCP Attack Lab (`/api/attack_scenario`) and `/api/demo/execute` return prepared verdicts, and the MCP telemetry panel mixes live counters with fixed figures. They illustrate the flow and are not gateway decisions. Every number in the text and tables of this README comes from the gateway, the CLI demos, the tests or the benchmark script. The screenshots show the dashboards as they are.
 - **Simulation, not production.** One process, in-memory keys, mock tools, no OS firewall rules, no user accounts. The console binds to 127.0.0.1.
 - **Synthetic data.** 500 generated customer records. Names are random pairings and contact details use reserved or invalid ranges. The chat allowlist does contain a few real team addresses for the live email demo.
 - **Risk scores and severities are deterministic heuristics**, not probabilities.
