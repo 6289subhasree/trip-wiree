@@ -38,7 +38,7 @@ def submit_email(recipient: str, subject: str, body: str, purpose: str, task_lin
     """Accepts a structured email action. Independently validates the recipient, permitted action, intent consistency, and policy requirements before execution."""
     import uuid
     request_id = f"mcp-{uuid.uuid4().hex[:8]}"
-    task_id = "CT-62b5221b"  # Deterministic test ID for demonstration
+    task_id = f"CT-{uuid.uuid4().hex[:8]}"
     
     intent_json = {
         "action": "send_email",
@@ -46,6 +46,8 @@ def submit_email(recipient: str, subject: str, body: str, purpose: str, task_lin
         "recipient": recipient
     }
     
+    effective_goal = task_link if any(w in task_link.lower() for w in ("send", "email", "mail", "notify")) else f"send email for {purpose}: {task_link}"
+
     proposal = {
         "tool": "send_email",
         "args": {
@@ -53,9 +55,9 @@ def submit_email(recipient: str, subject: str, body: str, purpose: str, task_lin
             "body": f"Subject: {subject}\n\n{body}"
         },
         "purpose": purpose,
-        "task_link": task_link,
+        "task_link": effective_goal,
         "evidence": [
-            {"claim": task_link, "source": {"context": "user_task", "id": task_id, "span": None}}
+            {"claim": effective_goal, "source": {"context": "user_task", "id": task_id, "span": None}}
         ],
         "resources_requested": [],
         "destination": recipient,

@@ -228,15 +228,40 @@ def send_webhook(event: str, prompt: str = "", proposal: dict = None, is_risky: 
         pass
 
 
+# Styling constants
+PINK = "\033[38;2;255;112;166m"
+PINK_BOLD = "\033[1;38;2;255;112;166m"
+GREEN = "\033[38;2;0;255;157m"
+GREEN_BOLD = "\033[1;38;2;0;255;157m"
+CYAN = "\033[38;2;0;229;255m"
+AMBER = "\033[38;2;245;158;11m"
+RED = "\033[38;2;239;68;68m"
+GRAY = "\033[38;2;138;143;152m"
+DARK_GRAY = "\033[38;2;98;102;109m"
+BOLD = "\033[1m"
+RESET = "\033[0m"
+
+VANTAGE_BANNER = f"""{PINK_BOLD}
+ __     ___    _   _ _____  _    ____ _____ 
+ \\ \\   / / \\  | \\ | |_   _|/ \\  / ___| ____|
+  \\ \\ / / _ \\ |  \\| | | | / _ \\| |  _|  _|  
+   \\ V / ___ \\| |\\  | | |/ ___ \\ |_| | |___ 
+    \\_/_/   \\_\\_| \\_| |_/_/   \\_\\____|_____|
+{RESET}{PINK}  Agent User Interactivity & Containment Protocol{RESET}
+
+{GRAY}~ Let's get started with Vantage interactive security agent ~{RESET}
+"""
+
 async def run():
-    print(f"TRIPWIRE V2 — LOCAL AGENT")
+    print(VANTAGE_BANNER)
     
     ollama_ok, models = check_ollama()
     if not ollama_ok:
-        print("Error: Ollama is not available. Please ensure it is running.")
+        print(f"{RED}[✗] Error: Ollama is not available at {OLLAMA_URL}. Please ensure it is running.{RESET}")
         sys.exit(1)
         
-    print(f"Model: {OLLAMA_MODEL}")
+    print(f"{GRAY}✔ Client runtime  :{RESET} {BOLD}MCP Stdio Client{RESET}")
+    print(f"{GRAY}✔ LLM Model       :{RESET} {CYAN}{OLLAMA_MODEL}{RESET} (Ollama Local)")
     
     # Connect to MCP server
     server_script = os.path.abspath(os.path.join(os.path.dirname(__file__), "../server/mcp_server.py"))
@@ -249,59 +274,68 @@ async def run():
     async with stdio_client(server_params) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
-            print("MCP server: connected")
+            print(f"{GRAY}✔ MCP server      :{RESET} {GREEN}Connected{RESET}")
             
             # Fetch gateway status
             try:
                 status_res = await session.call_tool("get_gateway_status", {})
                 status = json.loads(status_res.content[0].text)
-                print(f"Gateway: ONLINE")
-                print(f"Firewall: {status.get('firewall_mode')}")
+                mode = status.get('firewall_mode', 'NORMAL')
+                mode_color = GREEN if mode == "NORMAL" else AMBER
+                print(f"{GRAY}✔ Gateway Kernel  :{RESET} {mode_color}{mode}{RESET} (Enforced)")
             except Exception as e:
-                print(f"Gateway: ERROR ({e})")
+                print(f"{GRAY}✔ Gateway Kernel  :{RESET} {RED}ERROR ({e}){RESET}")
                 
-            print("\nYou can ask me to draft and send an email.")
+            print(f"{GRAY}✔ Destination ACL :{RESET} {GREEN}kumarayush, subhasree6289, toannesha2006, corporate hr{RESET}")
+            print(f"\n{DARK_GRAY}────────────────────────────────────────────────────────────────────────────{RESET}")
+            print(f"{PINK}Ready for instructions. Type your request or 'exit' to quit:{RESET}\n")
+
             while True:
                 try:
-                    user_input = input("\nYou: ")
-                    if user_input.lower() in ("exit", "quit"):
+                    user_input = input(f"{PINK_BOLD}➜ {BOLD}You:{RESET} ")
+                    if not user_input.strip():
+                        continue
+                    if user_input.lower().strip() in ("exit", "quit"):
+                        print(f"\n{PINK}Shutting down Vantage agent. Goodbye!{RESET}")
                         break
                         
                     # Dispatch live webhook to Defender SOC
                     send_webhook("prompt_received", prompt=user_input)
 
-                    print("\nAgent: Thinking...")
+                    print(f"\n{GRAY}Agent: Thinking & structuring proposal...{RESET}")
                     raw_prop = ask_ollama(user_input)
                     proposal = build_professional_email(user_input, raw_prop)
                         
-                    print("Agent: I have prepared the following email.\n")
-                    print(f"Recipient: {proposal.get('recipient')}")
-                    print(f"Subject: {proposal.get('subject')}\n")
-                    print(f"Body:\n{proposal.get('body')}\n")
-                    print("Proposed action:")
-                    print("  tool: submit_email")
-                    print(f"  purpose: {proposal.get('purpose')}")
-                    print(f"  recipient: {proposal.get('recipient')}")
+                    print(f"\n{PINK_BOLD}┌── Proposed Action Envelope ──────────────────────────────────────{RESET}")
+                    print(f"{PINK_BOLD}│{RESET} {BOLD}Tool     :{RESET} {CYAN}submit_email{RESET}")
+                    print(f"{PINK_BOLD}│{RESET} {BOLD}To       :{RESET} {proposal.get('recipient')}")
+                    print(f"{PINK_BOLD}│{RESET} {BOLD}Subject  :{RESET} {proposal.get('subject')}")
+                    print(f"{PINK_BOLD}│{RESET} {BOLD}Purpose  :{RESET} {GRAY}{proposal.get('purpose')}{RESET}")
+                    print(f"{PINK_BOLD}│{RESET}")
+                    print(f"{PINK_BOLD}│{RESET} {BOLD}Drafted Message:{RESET}")
+                    for line in str(proposal.get('body', '')).splitlines():
+                        print(f"{PINK_BOLD}│{RESET}   {GRAY}{line}{RESET}")
+                    print(f"{PINK_BOLD}└──────────────────────────────────────────────────────────────────{RESET}\n")
                     
                     is_risky, risk_reason = check_risk(user_input, proposal)
                     send_webhook("proposal_evaluated", prompt=user_input, proposal=proposal, is_risky=is_risky, risk_reason=risk_reason)
                     should_execute = False
 
                     if not is_risky:
-                        print("\n[✓] SAFE ACTION DETECTED — Verified recipient & system policy.")
-                        print("    Auto-approving without human interruption...")
+                        print(f"{GREEN_BOLD}[✔] SAFE ACTION VERIFIED{RESET} {GRAY}— Whitelisted recipient & corporate policy.{RESET}")
+                        print(f"    {GRAY}Auto-approving without human interruption...{RESET}")
                         should_execute = True
                     else:
-                        print(f"\n[⚠️] SECURITY THREAT / ANOMALY DETECTED: {risk_reason}")
-                        print("    Human-in-the-Loop approval strictly required!")
-                        choice = input("\nReview the proposal before execution.\nType 'approve' to submit to Gateway or 'cancel' to stop: ")
+                        print(f"{RED}[⚠️] SECURITY THREAT / POLICY ANOMALY DETECTED:{RESET} {BOLD}{risk_reason}{RESET}")
+                        print(f"    {AMBER}Human-in-the-Loop review strictly required!{RESET}")
+                        choice = input(f"\n{BOLD}Type 'approve' to submit to Gateway or 'cancel' to stop:{RESET} ")
                         if choice.lower().strip() == 'approve':
                             should_execute = True
                         else:
-                            print("Action cancelled by operator.")
+                            print(f"{DARK_GRAY}Action cancelled by operator.{RESET}\n")
 
                     if should_execute:
-                        print("Submitting to MCP Gateway...")
+                        print(f"{GRAY}Submitting envelope to TripWire Gateway kernel...{RESET}")
                         res = await session.call_tool("submit_email", {
                             "recipient": proposal.get("recipient"),
                             "subject": proposal.get("subject"),
@@ -314,17 +348,16 @@ async def run():
                         outcome = decision.get("decision", {}).get("outcome") if "decision" in decision else decision.get("outcome", "UNKNOWN")
                         send_webhook("gateway_decision", prompt=user_input, proposal=proposal, outcome=outcome, details=decision)
                         if outcome == "ACCEPTED" or outcome == "BYPASSED":
-                            print(f"\n[+] SUCCESS! Execution {outcome}")
+                            print(f"\n{GREEN_BOLD}[✔] SUCCESS! Gateway Verdict: {outcome}{RESET}")
+                            print(f"    {GRAY}Email transmission authorized and dispatched.{RESET}\n")
                         else:
-                            print(f"\n[-] BLOCKED! The Security Gateway rejected the action.")
-                            if "reason" in decision:
-                                print(f"Reason: {decision.get('reason')}")
-                            elif "decision" in decision and "reason" in decision["decision"]:
-                                print(f"Reason: {decision['decision']['reason']}")
+                            print(f"\n{RED}[✗] BLOCKED! Gateway Rejected Action{RESET}")
+                            reason = decision.get('reason') or (decision.get('decision', {}).get('reason') if isinstance(decision.get('decision'), dict) else "Policy Violation")
+                            print(f"    {RED}Reason: {reason}{RESET}\n")
                 except EOFError:
                     break
                 except KeyboardInterrupt:
-                    print("\nExiting...")
+                    print(f"\n\n{PINK}Session terminated. Goodbye!{RESET}")
                     break
 
 if __name__ == "__main__":

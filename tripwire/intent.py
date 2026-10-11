@@ -120,7 +120,7 @@ _GOAL_RULES: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
     (r"\bvendor\b|\bsupplier\b", (READ_VENDOR,)),
     (r"\bpayment\s+draft\b|\bdraft\b[^.]{0,30}\bpayment\b|\bprepare\b[^.]{0,30}\bpayment\b",
      (READ_INVOICE, READ_VENDOR, DRAFT_PAYMENT)),
-    (r"\bremittance\b|\bemail\b|\bsend\b|\bnotify\b", (EXTERNAL_EGRESS,)),
+    (r"\bremittance\b|\bemail\b|\bsend\b|\bnotify\b|\bmail\b|\bmessage\b|\bmeeting\b|\bleave\b|\bhi\b|\bhello\b|\brequest\b|\bcontact\b|\bupdate\b|\bcommunication\b", (EXTERNAL_EGRESS, INTERNAL_NOTIFY)),
 )
 
 

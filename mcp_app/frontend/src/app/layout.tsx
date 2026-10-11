@@ -7,7 +7,8 @@ import {
   Activity, 
   Crosshair, 
   MessageSquare,
-  LayoutDashboard
+  LayoutDashboard,
+  Terminal
 } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -39,6 +40,14 @@ export default function RootLayout({
 
           {/* Navigation Links */}
           <nav className="space-y-0.5 flex-grow">
+            <Link 
+              href="/agent" 
+              className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-[#ff70a6] hover:bg-[#ff70a6]/10 transition-colors"
+            >
+              <Terminal className="w-4 h-4 text-[#ff70a6]" />
+              <span className="font-semibold">Vantage CLI</span>
+            </Link>
+
             <Link 
               href="/chat" 
               className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-[#d0d6e0] hover:text-white hover:bg-[#141516] transition-colors"
