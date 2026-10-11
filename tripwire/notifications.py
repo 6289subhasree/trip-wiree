@@ -180,7 +180,7 @@ class MockEmailService:
         return self._add({
             "status": SIMULATED_DELIVERY, "kind": "agent_email", "external": bool(external),
             "correlation_id": correlation_id, "incident_id": task_id, "to": [to],
-            "subject": _mask(clean_subj), "body": _mask(clean_body), "attachments": attachments,
+            "subject": _mask(clean_subj), "body": _mask(clean_body)[:600], "attachments": attachments,
             "records": sum(int(a.get("records", 0)) for a in attachments),
             "canaries": sum(int(a.get("canaries", 0)) for a in attachments) + len(_CANARY.findall(body)),
             "reason": "send_email tool executed; simulated delivery",

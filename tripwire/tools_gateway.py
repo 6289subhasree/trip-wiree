@@ -373,13 +373,30 @@ class ToolGateway:
             return None
         self._check(v, "manifest", None, f"manifest {task.signed.hash[:12]} verified and active")
 
-        # 2. arguments ---------------------------------------------------------------------
+        # 2. arguments & payload safety ----------------------------------------------------
         known = v.tool in TOOL_ARGS
         if known and not self._args_ok(v.tool, v.args):
             self._check(v, "arguments", "PAYLOAD_INVALID",
                         f"arguments for {v.tool} must be exactly: {', '.join(TOOL_ARGS[v.tool]) or '(none)'}")
             return None
-        self._check(v, "arguments", None, "arguments match the tool schema" if known else "unknown tool")
+
+        # Content inspection: prevent weaponization, malware, or exploit payload injection
+        payload_eval = " ".join(str(x) for x in v.args.values() if isinstance(x, str)).lower()
+        if v.purpose:
+            payload_eval += " " + str(v.purpose).lower()
+        if v.task_link:
+            payload_eval += " " + str(v.task_link).lower()
+
+        malware_regex = re.compile(
+            r"\b(virus|malware|ransomware|trojan|worm|backdoor|rootkit|exploit|cve-\d+|cve:|zero-day|0-day|reverse shell|shellcode|keylogger|botnet|remote code execution|rce|privilege escalation|credential theft|weaponiz)\b",
+            re.IGNORECASE
+        )
+        malware_match = malware_regex.search(payload_eval)
+        if malware_match:
+            self._check(v, "arguments", "MALICIOUS_PAYLOAD_DETECTED",
+                        f"payload carries prohibited malware/vulnerability pattern: '{malware_match.group(0)}'")
+        else:
+            self._check(v, "arguments", None, "arguments match the tool schema and safety policy" if known else "unknown tool")
 
         # 3. tool allowed / forbidden ------------------------------------------------------
         profile = TOOL_PROFILES.get(v.tool)
